@@ -1,4 +1,11 @@
+## Run project
 
+To run project run in terminal:
+
+```
+npm install
+npm run dev
+```
 
 ## React + TypeScript + Vite
 
