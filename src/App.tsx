@@ -1,12 +1,19 @@
 import { useState } from 'react'
 import './App.css'
-import ListWindow from './components/ListWindow'
-import ChartWindow from './components/ChartWindow'
-import DetailWindow from './components/DetailWindow'
+import CSVWindow from './components/CSVWindow'
+import PlotWindow from './components/PlotWindow'
 
 function App() {
-  const [selectedItem, setSelectedItem] = useState<string | null>(null)
-  const [chartData, setChartData] = useState<number[]>([10, 20, 30, 40])
+  const [selectedRow, setSelectedRow] = useState<any | null>(null)
+
+  const generateRandomData = () => {
+    return Array.from({ length: 10 }, () => Math.floor(Math.random() * 100))
+  }
+
+  const getRowTitle = () => {
+    if (!selectedRow) return 'Sin selección'
+    return selectedRow['Especie'] || 'Sin nombre' // Cambia "Especie" por la columna que contiene el nombre relevante
+  }
 
   return (
     <div className="dashboard">
@@ -24,24 +31,33 @@ function App() {
       {/* Main content */}
       <main className="main-content">
         <div className="grid">
-          {/* Subventana 1: Lista */}
+          {/* Ventana 1: Tabla CSV */}
           <div className="card">
-            <ListWindow onItemSelect={(item) => setSelectedItem(item)} />
+            <CSVWindow onRowClick={(row) => setSelectedRow(row)} />
           </div>
 
-          {/* Subventana 2: Gráfico */}
+          {/* Ventana 2: Gráfico 1 */}
           <div className="card">
-            <ChartWindow data={chartData} selectedItem={selectedItem} />
+            <PlotWindow
+              title={`Gráfico 1 - ${getRowTitle()}`}
+              data={selectedRow ? generateRandomData() : []}
+            />
           </div>
 
-          {/* Subventana 3: Detalles */}
+          {/* Ventana 3: Gráfico 2 */}
           <div className="card">
-            <DetailWindow selectedItem={selectedItem} />
+            <PlotWindow
+              title={`Gráfico 2 - ${getRowTitle()}`}
+              data={selectedRow ? generateRandomData() : []}
+            />
           </div>
 
-          {/* Subventana 4: Información adicional */}
+          {/* Ventana 4: Gráfico 3 */}
           <div className="card">
-            <p>Información adicional o contenido personalizado.</p>
+            <PlotWindow
+              title={`Gráfico 3 - ${getRowTitle()}`}
+              data={selectedRow ? generateRandomData() : []}
+            />
           </div>
         </div>
       </main>

@@ -5,6 +5,8 @@ To run project run in terminal:
 ```
 npm install
 npm run dev
+npm install papaparse
+npm install react-chartjs-2 chart.js
 ```
 
 ## React + TypeScript + Vite
