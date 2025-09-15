@@ -7,6 +7,7 @@ npm install
 npm run dev
 npm install papaparse
 npm install react-chartjs-2 chart.js
+npm install react-router-dom
 ```
 
 ## React + TypeScript + Vite
