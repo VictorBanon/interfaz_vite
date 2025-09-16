@@ -10,14 +10,15 @@ import Compositional from './pages/Compositional'
 const App = () => {
   return (
     <Router>
-      <Routes> 
+      <Routes>
+        <Route path="/" element={<Introduction />} />   {/* 👈 add this */}
         <Route path="/introduction" element={<Introduction />} />
         <Route path="/taxonomy" element={<Taxonomy />} />
         <Route path="/structural" element={<Structural />} />
         <Route path="/kmer" element={<Kmer />} />
         <Route path="/spatial" element={<Spatial />} />
-        <Route path="/compositional" element={<Compositional />} /> 
-      </Routes>
+        <Route path="/compositional" element={<Compositional />} />
+      </Routes> 
     </Router>
   )
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Papa from 'papaparse'
 import './CSVWindow.css'
 
@@ -12,6 +12,20 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
   const [generalFilter, setGeneralFilter] = useState<string>('')
   const [currentPage, setCurrentPage] = useState<number>(1)
   const rowsPerPage = 10
+
+  // Load default CSV on mount
+  useEffect(() => {
+    const defaultCsvPath = '/data/taxonomy.csv'
+    Papa.parse(defaultCsvPath, {
+      header: true,
+      download: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        setData(result.data)
+      },
+      error: (err) => console.error('Error loading default CSV:', err)
+    })
+  }, [])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]

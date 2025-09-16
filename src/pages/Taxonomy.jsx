@@ -1,5 +1,5 @@
 import React from 'react'
-import Sidebar from '../components/Sidebar' 
+import Sidebar from '../components/sidebar/Sidebar' 
 import CSVWindow from '../components/CSVWindow' 
 
 const Taxonomy = () => {

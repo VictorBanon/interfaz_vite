@@ -1,5 +1,6 @@
 import React from 'react'
-import Sidebar from '../components/Sidebar' 
+import Sidebar from '../components/sidebar/Sidebar' 
+import CSVWindow from '../components/CSVWindow' 
 
 const Compositional = () => {
   return (
@@ -10,7 +11,10 @@ const Compositional = () => {
           <div className="card">Ventana 1</div>
           <div className="card">Ventana 2</div>
           <div className="card">Ventana 3</div>
-          <div className="card">Ventana 4</div>
+          <div className="card">
+          {/* Ventana 4 */ }
+          <CSVWindow />
+          </div>
         </div>
       </main>     
     </div>
