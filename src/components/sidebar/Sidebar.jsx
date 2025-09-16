@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import './Sidebar.css'
 
-const Sidebar = () => {
+const Sidebar = ({ onPCChange }) => {
   const location = useLocation()
 
   // local state for the 
@@ -10,7 +10,15 @@ const Sidebar = () => {
   const [taxon_value, setTaxon_value] = useState("Bacteria")
   const [part, setPart] = useState("all")
   const [aggregate, setAggregate] = useState("PC")
-  const [pcNumber, setNumPC] = useState(1)
+  // Reemplazar pcNumber por pcX y pcY
+  const [pcX, setPcX] = useState(1)
+  const [pcY, setPcY] = useState(1)
+
+  const handlePCChange = (newX, newY) => {
+    if (newX) setPcX(newX)
+    if (newY) setPcY(newY)
+    onPCChange?.(newX || pcX, newY || pcY)
+  }
 
   return (
     <aside className="sidebar">
@@ -24,23 +32,7 @@ const Sidebar = () => {
         </li>
 
         <li>
-          <Link to="/taxonomy">Taxonomy</Link>
-          {location.pathname === '/taxonomy' && (
-            <div className="manager">
-              <label>
-                Taxon:
-                <select value={taxon} onChange={e => setTaxon(e.target.value)}>
-                  <option value="superkingdom">Superkingdom</option> 
-                </select>
-              </label>
-              <label>
-                Taxon Value:
-                <select value={taxon_value} onChange={e => setTaxon_value(e.target.value)}>
-                  <option value="Bacteria">Bacteria</option> 
-                </select>
-              </label>  
-            </div>
-          )}
+          <Link to="/taxonomy">Taxonomy</Link> 
         </li>
 
         <li>
@@ -80,14 +72,30 @@ const Sidebar = () => {
               </label>
 
               {aggregate === "PC" && (
-                <label>
-                  PC Number:
-                  <select value={pcNumber} onChange={e => setPCNumber(Number(e.target.value))}>
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map((pc) => (
-                      <option key={pc} value={pc}>PC{pc}</option>
-                    ))}
-                  </select>
-                </label> 
+                <>
+                  <label>
+                    PCx:
+                    <select 
+                      value={pcX} 
+                      onChange={e => handlePCChange(Number(e.target.value), null)}
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(pc => (
+                        <option key={pc} value={pc}>PC{pc}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    PCy:
+                    <select 
+                      value={pcY} 
+                      onChange={e => handlePCChange(null, Number(e.target.value))}
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(pc => (
+                        <option key={pc} value={pc}>PC{pc}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               )}
             </div>
           )}
@@ -131,14 +139,24 @@ const Sidebar = () => {
 
 
               {aggregate === "PC" && (
-                <label>
-                  PC Number:
-                  <select value={pcNumber} onChange={e => setPCNumber(Number(e.target.value))}>
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map((pc) => (
-                      <option key={pc} value={pc}>PC{pc}</option>
-                    ))}
-                  </select>
-                </label> 
+                <>
+                  <label>
+                    PCx:
+                    <select value={pcX} onChange={e => setPcX(Number(e.target.value))}>
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((pc) => (
+                        <option key={pc} value={pc}>PC{pc}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    PCy:
+                    <select value={pcY} onChange={e => setPcY(Number(e.target.value))}>
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((pc) => (
+                        <option key={pc} value={pc}>PC{pc}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               )}
             </div>
           )}

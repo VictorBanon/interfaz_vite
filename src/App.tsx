@@ -1,11 +1,11 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom' 
-import Structural from './pages/Structural'
-import Kmer from './pages/Kmer' 
-import Introduction from './pages/Introduction' 
-import Taxonomy from './pages/Taxonomy' 
-import Spatial from './pages/Spatial' 
-import Compositional from './pages/Compositional' 
+import Structural from './pages/structural/Structural'
+import Kmer from './pages/kmer/Kmer' 
+import Introduction from './pages/introduction/Introduction' 
+import Taxonomy from './pages/taxonomy/Taxonomy' 
+import Spatial from './pages/spatial/Spatial' 
+import Compositional from './pages/compositional/Compositional' 
 
 const App = () => {
   return (

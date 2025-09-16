@@ -1,8 +1,8 @@
 import React from 'react'
-import Sidebar from '../components/sidebar/Sidebar' 
-import CSVWindow from '../components/CSVWindow' 
+import Sidebar from '../../components/sidebar/Sidebar' 
+import CSVWindow from '../../components/table/Table' 
 
-const Taxonomy = () => {
+const Compositional = () => {
   return (
     <div className="dashboard">
       <Sidebar />
@@ -21,4 +21,4 @@ const Taxonomy = () => {
   )
 }
 
-export default Taxonomy
+export default Compositional
