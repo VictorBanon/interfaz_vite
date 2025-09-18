@@ -4,11 +4,11 @@ To run project run in terminal:
 
 ```
 npm install
-npm run dev
 npm install papaparse
 npm install react-chartjs-2 chart.js
 npm install react-router-dom
 npm install plotly.js react-plotly.js papaparse
+npm run dev
 
 ```
 

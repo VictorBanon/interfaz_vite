@@ -79,6 +79,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
       
       try {
         const filePath = `/data/${id}/analysis/${idReplicon}_hc_${part}.csv`
+        console.log('filePath:', filePath)
         console.log('Cargando archivo:', filePath)
         
         const response = await fetch(filePath)

@@ -42,10 +42,11 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick }) => {
     text: points.map(row => row.id || ""),
     customdata: points,
     hovertemplate: 
-      '<b>Name:</b> %{customdata.name}<br>' +
-      '<b>ID:</b> %{customdata.id}<br>' +
+      '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
+      '<b>ID:</b> %{customdata.ID}<br>' +
       '<b>PC' + pcX + ':</b> %{x:.3f}<br>' +
       '<b>PC' + pcY + ':</b> %{y:.3f}<br>' +
+      '<b>name:</b> %{customdata.fullname} <br>' +
       '<extra></extra>',
     mode: 'markers',
     type: 'scatter',
@@ -101,9 +102,9 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick }) => {
             const point = event.points[0].customdata;
             console.log('Punto clickeado:', point);
             if (onPointClick) {
-              onPointClick({
-                name: point.name,
-                id: point.id
+              onPointClick({ 
+                ID: point.ID,
+                "ID-replicon": point["ID-replicon"],
               });
             }
           }

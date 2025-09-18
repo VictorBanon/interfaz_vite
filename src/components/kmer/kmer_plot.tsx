@@ -1,12 +1,39 @@
 import React from 'react'
 import Plot from 'react-plotly.js'
+import Papa from "papaparse";
 
 interface KmerPlotProps {
   id?: string
-  data?: any[]
+  idReplicon?: string
+  uploadedData?: any[] // Add a prop for uploaded data
 }
 
-const KmerPlot: React.FC<KmerPlotProps> = ({ id, data }) => {
+const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => {
+  const [data, setData] = React.useState<any[]>(uploadedData || []) // Initialize with uploadedData
+
+  React.useEffect(() => {
+    const filePath = `/data/${id}/analysis/${idReplicon}_ratio_cod_vs_non_6mer.csv`;
+
+    fetch(filePath)
+      .then((res) => res.text())
+      .then((csvText) => {
+        const parsed = Papa.parse(csvText, { header: true });
+        console.log("Parsed CSV:", parsed);
+        // Example: extract columns "position" and "value"
+        const formatted = parsed.data.map((row) => ({
+          Item: row.Item,
+          cod: parseFloat(row.cod),   // change to your column name
+          non: parseFloat(row.non), // change to your column name
+          color: row.color, // change to your column name
+        }));
+        setData(formatted);
+      })
+      .catch((err) => console.error("Error loading CSV:", err));
+  }, [id, idReplicon]);
+
+  console.log("data:", data);
+
+
   if (!data || data.length === 0) {
     return <div>No hay datos disponibles</div>
   }
@@ -33,13 +60,15 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, data }) => {
     const y = cat_data.map(d => parseFloat(d.non))
     const hoverText = cat_data.map(d => d.Item)
 
+    console.log(`x: ${x}, y: ${y}, category: ${category}`)
+
     // Scatter points
     traces.push({
       type: 'scatter',
       mode: 'markers',
       name: category,
-      x,
-      y,
+      x:x,
+      y:y,
       text: hoverText,
       marker: { color: colors[category as keyof typeof colors], opacity: 0.7 },
       xaxis: 'x',
@@ -63,7 +92,7 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, data }) => {
     traces.push({
       type: 'histogram',
       name: `${category} (y)`,
-      y,
+      y:y,
       marker: { color: colors[category as keyof typeof colors] },
       opacity: 0.5,
       showlegend: false,
@@ -178,4 +207,3 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, data }) => {
 }
 
 export default KmerPlot
-

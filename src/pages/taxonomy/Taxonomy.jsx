@@ -16,7 +16,7 @@ const Taxonomy = () => {
       <Sidebar />
       <main className="main-content">
         <div className="grid">
-          <div className="card" style={{ height: '400px', overflow: 'hidden' }}>
+          <div className="card"  >
             <TaxonomicTree onNodeSelect={handleNodeSelect} />
           </div>
           <div className="card">

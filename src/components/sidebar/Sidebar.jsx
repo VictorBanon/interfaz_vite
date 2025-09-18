@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import './Sidebar.css'
 
-const Sidebar = ({ onPCChange }) => {
+const Sidebar = ({  onPartChange ,onPCChange }) => {
   const location = useLocation()
 
   // local state for the 
@@ -18,6 +18,11 @@ const Sidebar = ({ onPCChange }) => {
     if (newX) setPcX(newX)
     if (newY) setPcY(newY)
     onPCChange?.(newX || pcX, newY || pcY)
+  }
+
+  const handlePartChange = (newpart) => {
+    if (newpart) setPart(newpart) 
+      onPartChange?.(newpart || part)
   }
 
   return (
@@ -54,10 +59,10 @@ const Sidebar = ({ onPCChange }) => {
 
               <label>
                 Part:
-                <select value={part} onChange={e => setPart(e.target.value)}>
+                <select value={part} onChange={e => handlePartChange(e.target.value)}>
                   <option value="all">All</option>
-                  <option value="code">Code</option>
-                  <option value="non">Non</option>
+                  <option value="cod">Coding</option>
+                  <option value="non">Non Coding</option>
                 </select>
               </label>
 
@@ -122,8 +127,8 @@ const Sidebar = ({ onPCChange }) => {
                 Part:
                 <select value={part} onChange={e => setPart(e.target.value)}>
                   <option value="all">All</option>
-                  <option value="code">Code</option>
-                  <option value="non">Non</option>
+                  <option value="cod">Coding</option>
+                  <option value="non">Non Coging</option>
                 </select>
               </label>
 
@@ -137,21 +142,26 @@ const Sidebar = ({ onPCChange }) => {
                 </select>
               </label>
 
-
               {aggregate === "PC" && (
                 <>
                   <label>
                     PCx:
-                    <select value={pcX} onChange={e => setPcX(Number(e.target.value))}>
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((pc) => (
+                    <select 
+                      value={pcX} 
+                      onChange={e => handlePCChange(Number(e.target.value), null)}
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(pc => (
                         <option key={pc} value={pc}>PC{pc}</option>
                       ))}
                     </select>
                   </label>
                   <label>
                     PCy:
-                    <select value={pcY} onChange={e => setPcY(Number(e.target.value))}>
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((pc) => (
+                    <select 
+                      value={pcY} 
+                      onChange={e => handlePCChange(null, Number(e.target.value))}
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(pc => (
                         <option key={pc} value={pc}>PC{pc}</option>
                       ))}
                     </select>

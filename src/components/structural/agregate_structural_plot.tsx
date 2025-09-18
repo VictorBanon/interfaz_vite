@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Plot from 'react-plotly.js'
+import Papa from 'papaparse' 
 
 interface AggregateProps {
   aggregate: string
@@ -13,29 +14,73 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   aggregate, 
   pcX, 
   pcY, 
-  id, 
-  idReplicon 
-}) => {
-  // Función para generar datos simulados de distribución normal
-  const generateNormalDistribution = (size: number, mean: number, std: number) => {
-    return Array.from({ length: size }, (_, i) => 
-      Array.from({ length: size }, (_, j) => {
-        // Crear patrones diferentes según la posición
-        const value = Math.random() * std + mean + 
-                     Math.sin(i/size * Math.PI) * 0.5 + 
-                     Math.cos(j/size * Math.PI) * 0.5
-        return value
-      })
-    )
-  }
+}) => { 
 
-  // Datos simulados con diferentes patrones para cada tipo
-  const simulatedData = {
-    pcX: generateNormalDistribution(20, 0, 1),
-    pcY: generateNormalDistribution(20, 0, 1),
-    max: generateNormalDistribution(20, 1.5, 0.5), // Valores más altos
-    min: generateNormalDistribution(20, -0.5, 0.3), // Valores más bajos
-    median: generateNormalDistribution(20, 0.5, 0.2) // Valores intermedios
+  const [csvData, setCsvData] = useState<{ pcX: number[][]; pcY: number[][] }>({ pcX: [], pcY: [] })
+
+  useEffect(() => {
+    const fetchCsvData = async (filePath: string): Promise<number[][]> => {
+      return new Promise((resolve, reject) => {
+        Papa.parse(filePath, {
+          download: true,
+          dynamicTyping: true, // let PapaParse turn numeric strings into numbers
+          complete: (result) => {
+            const data = result.data as (string | number)[][]
+        
+            // Transpose the data
+            const transposedData = data[0].map((_, colIndex) => data.map(row => row[colIndex]))
+        
+            const filtered = transposedData.filter(row => row.length > 1)
+        
+            // header row → x labels
+            const header = filtered[0] as string[]
+            const xLabels = header.slice(1)
+        
+            // rows → y labels and z matrix
+            const yLabels = filtered.slice(1).map(row => String(row[0]))
+            const zMatrix = filtered.slice(1).map(row =>
+              row.slice(1).map(value => Number(value))
+            )
+            const sizeLabels = xLabels
+            const positionLabels = yLabels
+            const textMatrix = zMatrix.map((row, i) =>
+              row.map((value, j) => {
+              const logValue = Math.log10(Math.abs(value) + 1)
+              return `Size: ${sizeLabels[j]}<br>` +
+                  `Position: ${positionLabels[i]}<br>` +
+                  `Value: ${value.toFixed(3)}<br>` +
+                  `Log10: ${logValue.toFixed(2)}`
+              })
+            )
+
+            resolve({ z: zMatrix, x: xLabels, y: yLabels, text: textMatrix }) 
+          },
+          error: (error) => reject(error)
+        })
+      })
+    } 
+
+    const loadCsvData = async () => {
+      try {
+        const pcXData = await fetchCsvData(`./data/philogenie/Bacteria/PC${pcX}_hc_cod_Bacteria.csv`)
+        const pcYData = await fetchCsvData(`./data/philogenie/Bacteria/PC${pcY}_hc_cod_Bacteria.csv`)
+        setCsvData({ pcX: pcXData, pcY: pcYData })
+      } catch (error) {
+        console.error('Error loading CSV data:', error)
+      }
+    }
+
+    loadCsvData()
+  }, [pcX, pcY])
+
+  console.log('CSV Data:', csvData)
+
+  const DataPlot = {
+    pcX: csvData.pcX,
+    pcY: csvData.pcY,
+    max: [], // Placeholder for other data types
+    min: [],
+    median: []
   }
 
   // Configuraciones específicas para cada tipo de visualización
@@ -69,22 +114,17 @@ const AggregateStructural: React.FC<AggregateProps> = ({
       title: 'Median Distribution'
     }
   }
-
-  // Labels para los ejes
-  const labels = {
-    x: Array.from({ length: 20 }, (_, i) => `Size ${i + 3}`),
-    y: Array.from({ length: 20 }, (_, i) => `Pos ${i}`)
-  }
+ 
 
   if (aggregate === "PC") {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', height: '100%' }}>
         <div style={{ flex: 1 }}>
           <Plot
             data={[{
-              z: simulatedData.pcX,
-              x: labels.x,
-              y: labels.y,
+              z: DataPlot.pcX.z,
+              x: DataPlot.pcX.x,
+              y: DataPlot.pcX.y,
               type: 'heatmap',
               showscale: true,
               colorscale: [
@@ -94,25 +134,45 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               ],
               zmin: -1,
               zmax: 1,
+              text: DataPlot.pcX.text,
+              hoverinfo: 'text',
               name: `PC${pcX}`
             }]}
             layout={{
               title: `PC${pcX} Distribution`,
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
-              height: null
+              xaxis: {
+                title: 'Size',
+                titlefont: { size: 10 },
+                tickfont: { size: 8 },
+                side: 'bottom'
+              },
+              yaxis: {
+                title: 'Position',
+                titlefont: { size: 10 },
+                tickfont: { size: 8 }
+              },
+              hoverlabel: {
+                bgcolor: 'white',
+                font: { size: 12 }
+              } 
             }}
             style={{ width: '100%', height: '100%' }}
             useResizeHandler={true}
-            config={{ responsive: true, displayModeBar: true }}
+            config={{ 
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false
+            }}
           />
         </div>
         <div style={{ flex: 1 }}>
           <Plot
             data={[{
-              z: simulatedData.pcY,
-              x: labels.x,
-              y: labels.y,
+              z: DataPlot.pcY.z,
+              x: DataPlot.pcY.x,
+              y: DataPlot.pcY.y,
               type: 'heatmap',
               showscale: true,
               colorscale: [
@@ -122,17 +182,37 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               ],
               zmin: -1,
               zmax: 1,
-              name: `PC${pcY}`
+              text: DataPlot.pcY.text,
+              hoverinfo: 'text',
+              name: `PC${pcX}`
             }]}
             layout={{
-              title: `PC${pcY} Distribution`,
+              title: `PC${pcX} Distribution`,
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
-              height: null
+              xaxis: {
+                title: 'Size',
+                titlefont: { size: 10 },
+                tickfont: { size: 8 },
+                side: 'bottom'
+              },
+              yaxis: {
+                title: 'Position',
+                titlefont: { size: 10 },
+                tickfont: { size: 8 }
+              },
+              hoverlabel: {
+                bgcolor: 'white',
+                font: { size: 12 }
+              } 
             }}
             style={{ width: '100%', height: '100%' }}
             useResizeHandler={true}
-            config={{ responsive: true, displayModeBar: true }}
+            config={{ 
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false
+            }}
           />
         </div>
       </div>
@@ -144,56 +224,9 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   if (!config) return null
 
   return (
-    <Plot
-      data={[{
-        z: simulatedData[aggregate as keyof typeof simulatedData],
-        x: labels.x,
-        y: labels.y,
-        type: 'heatmap',
-        showscale: true,
-        colorscale: config.colorscale,
-        zmin: config.zmin,
-        zmax: config.zmax,
-        hovertemplate: 
-          'Size: %{x}<br>' +
-          'Position: %{y}<br>' +
-          'Value: %{z:.3f}' +
-          '<extra></extra>',
-      }]}
-      layout={{
-        title: config.title,
-        autosize: true,
-        margin: { l: 50, r: 50, t: 30, b: 30 },
-        xaxis: {
-          title: 'Size',
-          titlefont: { size: 10 },
-          tickfont: { size: 8 }
-        },
-        yaxis: {
-          title: 'Position',
-          titlefont: { size: 10 },
-          tickfont: { size: 8 }
-        },
-        hoverlabel: {
-          bgcolor: 'white',
-          font: { size: 12 }
-        }
-      }}
-      style={{ width: '100%', height: '100%' }}
-      useResizeHandler={true}
-      config={{ 
-        responsive: true, 
-        displayModeBar: true,
-        displaylogo: false,
-        toImageButtonOptions: {
-          format: 'png',
-          filename: `${aggregate}_distribution`,
-          height: 1000,
-          width: 1000,
-          scale: 2
-        }
-      }}
-    />
+    <div>
+      Error
+    </div>
   )
 }
 

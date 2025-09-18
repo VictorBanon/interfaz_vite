@@ -32,6 +32,7 @@ const Structural = () => {
   }
 
   const handlePartChange = (newPart) => {
+    console.log('Part changed to:', newPart)
     setPart(newPart)
   }
 
@@ -75,15 +76,8 @@ const Structural = () => {
               idReplicon={selectedElement.fullname}
             />
           </div>
-          <div className="card">
-            <div style={{ padding: '10px' }}>
-              <p>Elemento seleccionado:</p>
-              <p>ID: {selectedElement.id || 'No seleccionado'}</p>
-              <p>ID-replicon: {selectedElement.idReplicon || 'No seleccionado'}</p>
-              <p>Ruta: {selectedElement.id ? 
-                `/data/${selectedElement.id}/analysis/${selectedElement.id}_hc_${part}.csv` 
-                : 'No hay archivo seleccionado'}</p>
-            </div>
+          <div className="card">  
+            <Heatmap id={selectedElement.id} idReplicon={selectedElement.idReplicon} part={part} />
           </div>
           <div className="card">
           {/* Ventana 4 */ }
