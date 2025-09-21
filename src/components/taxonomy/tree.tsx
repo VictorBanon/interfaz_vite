@@ -112,10 +112,15 @@ interface TaxonomicTreeProps {
 const TaxonomicTree: React.FC<TaxonomicTreeProps> = ({ onNodeSelect }) => {
   const [taxonomyData, setTaxonomyData] = useState<TaxonomyNode[] | null>(null)
   const [scale, setScale] = useState(1)
+  const [isDragging, setIsDragging] = useState(false)
+  const [position, setPosition] = useState<Position>({ x: 0, y: 0 })
+  const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleMouseDown = (e: MouseEvent) => {
-    if (containerRef.current && e.target === containerRef.current) {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (containerRef.current && 
+        (target.classList.contains('tree-content') || target === containerRef.current)) {
       setIsDragging(true)
       setDragStart({
         x: e.clientX - position.x,
@@ -124,7 +129,7 @@ const TaxonomicTree: React.FC<TaxonomicTreeProps> = ({ onNodeSelect }) => {
     }
   }
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging) {
       setPosition({
         x: e.clientX - dragStart.x,
@@ -212,9 +217,25 @@ const TaxonomicTree: React.FC<TaxonomicTreeProps> = ({ onNodeSelect }) => {
   }
 
   return (
-    <div className="tree-container">
+    <div 
+      ref={containerRef}
+      className="tree-container"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      <div className="tree-header">
+        Taxonomic Treeb     
+      </div>
       {taxonomyData ? (
-        <div className="tree-content" style={{ transform: `scale(${scale})` }}>
+        <div 
+          className={`tree-content ${isDragging ? 'dragging' : ''}`}
+          style={{ 
+            transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+            cursor: isDragging ? 'grabbing' : 'grab'
+          }}
+        >
           {taxonomyData.map((node, index) => (
             <TreeNode 
               key={index} 

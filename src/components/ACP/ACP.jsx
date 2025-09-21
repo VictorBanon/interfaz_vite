@@ -1,23 +1,53 @@
 import React, { useState, useEffect } from "react"
 import Plot from "react-plotly.js"
 import Papa from "papaparse"
+import { buildACPFilePath } from '../../utils/taxonomyUtils'
 
-const ACP = ({ csvPath, pcX, pcY, onPointClick }) => {
+const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part }) => {
   const [data, setData] = useState([])
+  const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
+
+  // Construir ruta dinámica cuando cambien los parámetros
+  useEffect(() => {
+    const updateCsvPath = async () => {
+      if (taxon && taxonValue && part) {
+        try {
+          const dynamicPath = await buildACPFilePath(taxon, taxonValue, part, 'acp', pcX, pcY)
+          console.log('Dynamic ACP path:', dynamicPath)
+          setCurrentCsvPath(dynamicPath)
+        } catch (error) {
+          console.error('Error building dynamic path:', error)
+          // Usar ruta por defecto si hay error
+          setCurrentCsvPath(csvPath || `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`)
+        }
+      } else {
+        setCurrentCsvPath(csvPath)
+      }
+    }
+    
+    updateCsvPath()
+  }, [taxon, taxonValue, part, pcX, pcY, csvPath])
 
   useEffect(() => {
-    Papa.parse(csvPath, {
+    if (!currentCsvPath) return
+    
+    console.log('Loading ACP data from:', currentCsvPath)
+    Papa.parse(currentCsvPath, {
       header: true,
       download: true,
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
         const filtered = results.data.filter(row => row && Object.keys(row).length > 0)
+        console.log('ACP data loaded:', filtered.length, 'rows')
         setData(filtered)
       },
-      error: (err) => console.error("CSV parsing error:", err)
+      error: (err) => {
+        console.error("CSV parsing error:", err)
+        setData([])
+      }
     })
-  }, [csvPath])
+  }, [currentCsvPath])
 
   useEffect(() => {
     console.log('ACP updating with PC values:', { pcX, pcY })

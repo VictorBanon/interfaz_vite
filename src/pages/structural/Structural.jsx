@@ -15,6 +15,10 @@ const Structural = () => {
   const [part, setPart] = useState("all")
   const [pcConfig, setPcConfig] = useState({ x: 1, y: 1 })
   const [aggregate, setAggregate] = useState("PC") // Añadir estado para aggregate
+  
+  // Estados para taxonomía
+  const [taxon, setTaxon] = useState("superkingdom")
+  const [taxonValue, setTaxonValue] = useState("Bacteria")
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
@@ -46,13 +50,28 @@ const Structural = () => {
     setAggregate(newAggregate)
   }
 
+  // Manejadores para taxonomía
+  const handleTaxonChange = (newTaxon) => {
+    console.log('Taxon changed to:', newTaxon)
+    setTaxon(newTaxon)
+  }
+
+  const handleTaxonValueChange = (newTaxonValue) => {
+    console.log('Taxon value changed to:', newTaxonValue)
+    setTaxonValue(newTaxonValue)
+  }
+
   return (
     <div className="dashboard">
       <Sidebar 
         onPartChange={handlePartChange}
         onPCChange={handlePCChange}
-        onAggregateChange={handleAggregateChange} // Añadir prop
-        aggregate={aggregate} // Pasar el estado actual
+        onAggregateChange={handleAggregateChange}
+        onTaxonChange={handleTaxonChange}
+        onTaxonValueChange={handleTaxonValueChange}
+        aggregate={aggregate}
+        taxon={taxon}
+        taxonValue={taxonValue}
       />
       <main className="main-content">
         <div className="grid">
@@ -63,6 +82,9 @@ const Structural = () => {
               pcX={pcConfig.x}
               pcY={pcConfig.y}
               onPointClick={handleACPClick}
+              taxon={taxon}
+              taxonValue={taxonValue}
+              part={part}
             />
             
 
@@ -74,6 +96,9 @@ const Structural = () => {
               pcY={pcConfig.y}
               id={selectedElement.id}
               idReplicon={selectedElement.fullname}
+              taxon={taxon}
+              taxonValue={taxonValue}
+              part={part}
             />
           </div>
           <div className="card">  

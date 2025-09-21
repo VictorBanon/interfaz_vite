@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Plot from 'react-plotly.js'
-import Papa from 'papaparse' 
+import Papa from 'papaparse'
+import { buildACPFilePath } from '../../utils/taxonomyUtils' 
 
 interface AggregateProps {
   aggregate: string
@@ -8,12 +9,18 @@ interface AggregateProps {
   pcY: number
   id?: string
   idReplicon?: string
+  taxon?: string
+  taxonValue?: string
+  part?: string
 }
 
 const AggregateStructural: React.FC<AggregateProps> = ({ 
   aggregate, 
   pcX, 
-  pcY, 
+  pcY,
+  taxon,
+  taxonValue, 
+  part
 }) => { 
 
   const [csvData, setCsvData] = useState<{ pcX: number[][]; pcY: number[][] }>({ pcX: [], pcY: [] })
@@ -62,16 +69,42 @@ const AggregateStructural: React.FC<AggregateProps> = ({
 
     const loadCsvData = async () => {
       try {
-        const pcXData = await fetchCsvData(`./data/philogenie/Bacteria/PC${pcX}_hc_cod_Bacteria.csv`)
-        const pcYData = await fetchCsvData(`./data/philogenie/Bacteria/PC${pcY}_hc_cod_Bacteria.csv`)
+        let pcXPath, pcYPath;
+        
+        // Si tenemos parámetros taxonómicos, usar rutas dinámicas
+        if (taxon && taxonValue && part) {
+          pcXPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
+          pcYPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
+          
+          // Ajustar las rutas para usar el formato correcto de PC
+          pcXPath = pcXPath.replace('acp_hc_', `PC${pcX}_hc_`)
+          pcYPath = pcYPath.replace('acp_hc_', `PC${pcY}_hc_`)
+        } else {
+          // Rutas por defecto
+          pcXPath = `./data/philogenie/Bacteria/PC${pcX}_hc_${part || 'cod'}_Bacteria.csv`
+          pcYPath = `./data/philogenie/Bacteria/PC${pcY}_hc_${part || 'cod'}_Bacteria.csv`
+        }
+        
+        console.log('Loading PC data from:', { pcXPath, pcYPath })
+        
+        const pcXData = await fetchCsvData(pcXPath)
+        const pcYData = await fetchCsvData(pcYPath)
         setCsvData({ pcX: pcXData, pcY: pcYData })
       } catch (error) {
         console.error('Error loading CSV data:', error)
+        // Fallback a rutas por defecto
+        try {
+          const pcXData = await fetchCsvData(`./data/philogenie/Bacteria/PC${pcX}_hc_cod_Bacteria.csv`)
+          const pcYData = await fetchCsvData(`./data/philogenie/Bacteria/PC${pcY}_hc_cod_Bacteria.csv`)
+          setCsvData({ pcX: pcXData, pcY: pcYData })
+        } catch (fallbackError) {
+          console.error('Fallback loading also failed:', fallbackError)
+        }
       }
     }
 
     loadCsvData()
-  }, [pcX, pcY])
+  }, [pcX, pcY, taxon, taxonValue, part])
 
   console.log('CSV Data:', csvData)
 

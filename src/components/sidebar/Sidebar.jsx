@@ -1,18 +1,81 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import './Sidebar.css'
+import { readTaxonomyData, getTaxonValues } from '../../utils/taxonomyUtils'
 
-const Sidebar = ({  onPartChange ,onPCChange }) => {
+const Sidebar = ({  
+  onPartChange, 
+  onPCChange, 
+  onAggregateChange,
+  onTaxonChange,
+  onTaxonValueChange,
+  aggregate,
+  taxon: initialTaxon,
+  taxonValue: initialTaxonValue
+}) => {
   const location = useLocation()
 
   // local state for the 
-  const [taxon, setTaxon] = useState("superkingdom")  
-  const [taxon_value, setTaxon_value] = useState("Bacteria")
+  const [taxon, setTaxon] = useState(initialTaxon || "superkingdom")  
+  const [taxon_value, setTaxon_value] = useState(initialTaxonValue || "Bacteria")
   const [part, setPart] = useState("all")
-  const [aggregate, setAggregate] = useState("PC")
+  const [aggregateState, setAggregateState] = useState(aggregate || "PC")
   // Reemplazar pcNumber por pcX y pcY
   const [pcX, setPcX] = useState(1)
   const [pcY, setPcY] = useState(1)
+  
+  // Estados para datos de taxonomía
+  const [taxonomyData, setTaxonomyData] = useState(null)
+  const [availableValues, setAvailableValues] = useState([])
+
+  // Cargar datos de taxonomía al montar el componente
+  useEffect(() => {
+    const loadTaxonomyData = async () => {
+      const data = await readTaxonomyData()
+      setTaxonomyData(data)
+      // Establecer los valores iniciales para el taxón por defecto
+      const initialValues = getTaxonValues(data, taxon)
+      setAvailableValues(initialValues)
+      // Si el valor actual no está en la lista, seleccionar el primero
+      if (initialValues.length > 0 && !initialValues.includes(taxon_value)) {
+        setTaxon_value(initialValues[0])
+      }
+    }
+    
+    loadTaxonomyData()
+  }, [])
+
+  // Actualizar valores disponibles cuando cambie el taxón
+  useEffect(() => {
+    if (taxonomyData) {
+      const values = getTaxonValues(taxonomyData, taxon)
+      setAvailableValues(values)
+      // Seleccionar el primer valor si el actual no está disponible
+      if (values.length > 0 && !values.includes(taxon_value)) {
+        const newValue = values[0]
+        setTaxon_value(newValue)
+        onTaxonValueChange?.(newValue)
+      }
+    }
+  }, [taxon, taxonomyData])
+
+  // Manejar cambios en taxon
+  const handleTaxonChange = (newTaxon) => {
+    setTaxon(newTaxon)
+    onTaxonChange?.(newTaxon)
+  }
+
+  // Manejar cambios en taxon_value
+  const handleTaxonValueChange = (newTaxonValue) => {
+    setTaxon_value(newTaxonValue)
+    onTaxonValueChange?.(newTaxonValue)
+  }
+
+  // Manejar cambios en aggregate
+  const handleAggregateChange = (newAggregate) => {
+    setAggregateState(newAggregate)
+    onAggregateChange?.(newAggregate)
+  }
 
   const handlePCChange = (newX, newY) => {
     if (newX) setPcX(newX)
@@ -46,14 +109,22 @@ const Sidebar = ({  onPartChange ,onPCChange }) => {
             <div className="manager">
               <label>
                 Taxon:
-                <select value={taxon} onChange={e => setTaxon(e.target.value)}>
-                  <option value="superkingdom">Superkingdom</option> 
+                <select value={taxon} onChange={e => handleTaxonChange(e.target.value)}>
+                  {taxonomyData?.columns.map(column => (
+                    <option key={column} value={column}>
+                      {column.charAt(0).toUpperCase() + column.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
                 Taxon Value:
-                <select value={taxon_value} onChange={e => setTaxon_value(e.target.value)}>
-                  <option value="Bacteria">Bacteria</option> 
+                <select value={taxon_value} onChange={e => handleTaxonValueChange(e.target.value)}>
+                  {availableValues.map(value => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
                 </select>
               </label> 
 
@@ -68,7 +139,7 @@ const Sidebar = ({  onPartChange ,onPCChange }) => {
 
               <label>
                 Aggregate:
-                <select value={aggregate} onChange={e => setAggregate(e.target.value)}>
+                <select value={aggregateState} onChange={e => handleAggregateChange(e.target.value)}>
                   <option value="PC">PC</option>
                   <option value="max">Max</option>
                   <option value="min">Min</option>
@@ -76,7 +147,7 @@ const Sidebar = ({  onPartChange ,onPCChange }) => {
                 </select>
               </label>
 
-              {aggregate === "PC" && (
+              {aggregateState === "PC" && (
                 <>
                   <label>
                     PCx:
@@ -112,14 +183,22 @@ const Sidebar = ({  onPartChange ,onPCChange }) => {
             <div className="manager">
               <label>
                 Taxon:
-                <select value={taxon} onChange={e => setTaxon(e.target.value)}>
-                  <option value="superkingdom">Superkingdom</option> 
+                <select value={taxon} onChange={e => handleTaxonChange(e.target.value)}>
+                  {taxonomyData?.columns.map(column => (
+                    <option key={column} value={column}>
+                      {column.charAt(0).toUpperCase() + column.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
                 Taxon Value:
-                <select value={taxon_value} onChange={e => setTaxon_value(e.target.value)}>
-                  <option value="Bacteria">Bacteria</option> 
+                <select value={taxon_value} onChange={e => handleTaxonValueChange(e.target.value)}>
+                  {availableValues.map(value => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
                 </select>
               </label> 
 
@@ -134,7 +213,7 @@ const Sidebar = ({  onPartChange ,onPCChange }) => {
 
               <label>
                 Aggregate:
-                <select value={aggregate} onChange={e => setAggregate(e.target.value)}>
+                <select value={aggregateState} onChange={e => handleAggregateChange(e.target.value)}>
                   <option value="PC">PC</option>
                   <option value="max">Max</option>
                   <option value="min">Min</option>
@@ -142,7 +221,7 @@ const Sidebar = ({  onPartChange ,onPCChange }) => {
                 </select>
               </label>
 
-              {aggregate === "PC" && (
+              {aggregateState === "PC" && (
                 <>
                   <label>
                     PCx:
