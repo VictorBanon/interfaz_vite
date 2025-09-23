@@ -73,8 +73,9 @@ const AggregateStructural: React.FC<AggregateProps> = ({
         
         // Si tenemos parámetros taxonómicos, usar rutas dinámicas
         if (taxon && taxonValue && part) {
-          pcXPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
-          pcYPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
+          // Construir rutas independientemente para cada PC
+          pcXPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX)
+          pcYPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcY)
           
           // Ajustar las rutas para usar el formato correcto de PC
           pcXPath = pcXPath.replace('acp_hc_', `PC${pcX}_hc_`)
@@ -217,10 +218,10 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmax: 1,
               text: DataPlot.pcY.text,
               hoverinfo: 'text',
-              name: `PC${pcX}`
+              name: `PC${pcY}` // Cambiar de pcX a pcY
             }]}
             layout={{
-              title: `PC${pcX} Distribution`,
+              title: `PC${pcY} Distribution`, // Cambiar de pcX a pcY
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
               xaxis: {

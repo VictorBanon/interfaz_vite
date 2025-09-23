@@ -59,8 +59,7 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
     const x = cat_data.map(d => parseFloat(d.cod))
     const y = cat_data.map(d => parseFloat(d.non))
     const hoverText = cat_data.map(d => d.Item)
-
-    console.log(`x: ${x}, y: ${y}, category: ${category}`)
+ 
 
     // Scatter points
     traces.push({

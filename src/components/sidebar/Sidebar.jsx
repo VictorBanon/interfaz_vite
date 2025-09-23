@@ -201,15 +201,7 @@ const Sidebar = ({
                   ))}
                 </select>
               </label> 
-
-              <label>
-                Part:
-                <select value={part} onChange={e => setPart(e.target.value)}>
-                  <option value="all">All</option>
-                  <option value="cod">Coding</option>
-                  <option value="non">Non Coging</option>
-                </select>
-              </label>
+ 
 
               <label>
                 Aggregate:

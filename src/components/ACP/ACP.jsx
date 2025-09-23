@@ -106,8 +106,9 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part }) => {
           hovermode: "closest",
           autosize: true,
           margin: { l: 20, r: 60, t: 20, b: 20 },
-          height: null, // Removemos la altura fija
-          width: null // Removemos el ancho fijo
+          height: null,
+          width: null,
+          showlegend: true // Forzar mostrar leyenda siempre
         }}
         style={{ 
           width: '100%', 

@@ -4,6 +4,7 @@ import './Kmer.css'
 import CSVWindow from '../../components/table/Table' 
 import ACP from '../../components/ACP/ACP'
 import KmerPlot from '../../components/kmer/kmer_plot'
+import AggregateKmer from '../../components/kmer/agregate_kmer_plot'
 
 const Kmer = () => {  
   const [selectedElement, setSelectedElement] = useState({
@@ -11,8 +12,12 @@ const Kmer = () => {
     idReplicon: null
   });
   const [part, setPart] = useState("all")
-  const [pcConfig, setPcConfig] = useState({ x: 1, y: 1 })
-  const [aggregate, setAggregate] = useState("PC") // Añadir estado para aggregate
+  const [pcConfig, setPcConfig] = useState({ x: 1, y: 2 })
+  const [aggregate, setAggregate] = useState("PC")
+  
+  // Estados para taxonomía
+  const [taxon, setTaxon] = useState("superkingdom")
+  const [taxonValue, setTaxonValue] = useState("Bacteria")
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
@@ -38,19 +43,33 @@ const Kmer = () => {
     setPcConfig({ x, y })
   }
 
-  // Nuevo manejador para aggregate
   const handleAggregateChange = (newAggregate) => {
     setAggregate(newAggregate)
   }
 
+  // Manejadores para taxonomía
+  const handleTaxonChange = (newTaxon) => {
+    console.log('Taxon changed to:', newTaxon)
+    setTaxon(newTaxon)
+  }
+
+  const handleTaxonValueChange = (newTaxonValue) => {
+    console.log('Taxon value changed to:', newTaxonValue)
+    setTaxonValue(newTaxonValue)
+  }
+
   return (
     <div className="dashboard">
-    <Sidebar 
-      onPartChange={handlePartChange}
-      onPCChange={handlePCChange}
-      onAggregateChange={handleAggregateChange} // Añadir prop
-      aggregate={aggregate} // Pasar el estado actual
-    />
+      <Sidebar 
+        onPartChange={handlePartChange}
+        onPCChange={handlePCChange}
+        onAggregateChange={handleAggregateChange}
+        onTaxonChange={handleTaxonChange}
+        onTaxonValueChange={handleTaxonValueChange}
+        aggregate={aggregate}
+        taxon={taxon}
+        taxonValue={taxonValue}
+      />
       <main className="main-content">
         <div className="grid">
           <div className="card">
@@ -60,10 +79,24 @@ const Kmer = () => {
               pcX={pcConfig.x}
               pcY={pcConfig.y}
               onPointClick={handleACPClick}
+              taxon={taxon}
+              taxonValue={taxonValue}
+              part={part}
             />
 
           </div>
-          <div className="card">Ventana 2</div>
+          <div className="card">
+            <AggregateKmer
+              aggregate={aggregate}
+              pcX={pcConfig.x}
+              pcY={pcConfig.y}
+              id={selectedElement.id}
+              idReplicon={selectedElement.idReplicon}
+              taxon={taxon}
+              taxonValue={taxonValue}
+              part={part}
+            />
+          </div>
           <div className="card">
             <KmerPlot 
               id={selectedElement.id} 
