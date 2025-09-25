@@ -254,6 +254,8 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
       })
     )
 
+    console.log('Processed Data:', { logMatrix, transposed, sizeLabels, positionLabels, hoverMatrix })
+
     return {
       logData: logMatrix,
       originalData: transposed,
@@ -407,7 +409,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
         displaylogo: false
       }}
     />
-  );;
+  )
 }
 
 export default Heatmap

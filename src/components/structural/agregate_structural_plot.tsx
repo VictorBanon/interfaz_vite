@@ -59,6 +59,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                   `Log10: ${logValue.toFixed(2)}`
               })
             )
+            console.log('Parsed CSV Data:', { xLabels, yLabels, zMatrix, textMatrix })
 
             resolve({ z: zMatrix, x: xLabels, y: yLabels, text: textMatrix }) 
           },
@@ -160,17 +161,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               x: DataPlot.pcX.x,
               y: DataPlot.pcX.y,
               type: 'heatmap',
-              showscale: true,
               colorscale: [
                 [0, 'rgb(0, 0, 255)'],
                 [0.5, 'rgb(255, 255, 255)'],
                 [1, 'rgb(255, 0, 0)']
               ],
+              showscale: true,
+              text: DataPlot.pcX.text,
+              hoverinfo: 'text', 
               zmin: -1,
               zmax: 1,
-              text: DataPlot.pcX.text,
-              hoverinfo: 'text',
-              name: `PC${pcX}`
             }]}
             layout={{
               title: `PC${pcX} Distribution`,
@@ -208,17 +208,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               x: DataPlot.pcY.x,
               y: DataPlot.pcY.y,
               type: 'heatmap',
-              showscale: true,
               colorscale: [
                 [0, 'rgb(0, 0, 255)'],
                 [0.5, 'rgb(255, 255, 255)'],
                 [1, 'rgb(255, 0, 0)']
               ],
-              zmin: -1,
-              zmax: 1,
+              showscale: true,
               text: DataPlot.pcY.text,
               hoverinfo: 'text',
-              name: `PC${pcY}` // Cambiar de pcX a pcY
+              zmin: -1,
+              zmax: 1, 
             }]}
             layout={{
               title: `PC${pcY} Distribution`, // Cambiar de pcX a pcY
