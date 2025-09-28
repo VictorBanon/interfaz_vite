@@ -141,10 +141,9 @@ const Sidebar = ({
                 Aggregate:
                 <select value={aggregateState} onChange={e => handleAggregateChange(e.target.value)}>
                   <option value="PC">PC</option>
-                  <option value="max">Max</option>
-                  <option value="min">Min</option>
-                  <option value="median">Median</option>
-                </select>
+                  <option value="Min-Max">Min-Max</option>
+                  <option value="Mean-Median">Mean-Median</option>
+                 </select>
               </label>
 
               {aggregateState === "PC" && (
@@ -206,10 +205,7 @@ const Sidebar = ({
               <label>
                 Aggregate:
                 <select value={aggregateState} onChange={e => handleAggregateChange(e.target.value)}>
-                  <option value="PC">PC</option>
-                  <option value="max">Max</option>
-                  <option value="min">Min</option>
-                  <option value="median">Median</option>
+                  <option value="PC">PC</option> 
                 </select>
               </label>
 
@@ -253,7 +249,28 @@ const Sidebar = ({
         <li>
           <Link to="/compositional">Compositional</Link>
           {location.pathname === '/compositional' && (
-            <p className="test-text">✅ Test: You are on Compositional</p>
+            <div className="manager">
+              <label>
+                Taxon:
+                <select value={taxon} onChange={e => handleTaxonChange(e.target.value)}>
+                  {taxonomyData?.columns.map(column => (
+                    <option key={column} value={column}>
+                      {column.charAt(0).toUpperCase() + column.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Taxon Value:
+                <select value={taxon_value} onChange={e => handleTaxonValueChange(e.target.value)}>
+                  {availableValues.map(value => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           )}
         </li>
       </ul>

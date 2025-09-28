@@ -13,6 +13,7 @@ const Spatial = () => {
     console.log('Organismo seleccionado:', row);
     setSelectedOrganism(row);
   };
+  
   return (
     <div className="dashboard">
       <Sidebar /> 
@@ -23,13 +24,14 @@ const Spatial = () => {
             <Replicon_plot selectedOrganism={selectedOrganism} /> 
           </div>
 
-          {/* Ventana 3: Poisson regression */}
+          {/* Ventana 3: Count vs Length Analysis - Pasar selectedOrganism */}
           <div className="card">
-            <LinearRegressionPlot />
+            <LinearRegressionPlot selectedOrganism={selectedOrganism} />
           </div>
+          
           <div className="card">
-          {/* Ventana 4 */ }
-          <CSVWindow onRowClick={handleRowClick} />
+            {/* Ventana 4 */ }
+            <CSVWindow onRowClick={handleRowClick} />
           </div>
         </div>
       </main>     

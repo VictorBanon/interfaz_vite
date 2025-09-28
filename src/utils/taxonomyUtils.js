@@ -111,6 +111,8 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
       fileName = `PC${pcX}_hc_${part}_${taxonValue}.csv`
     } else if (aggregate === 'acp') {
       fileName = `acp_hc_${part}_${taxonValue}.csv`
+    } else if (aggregate === 'min_max' || aggregate === 'mean' || aggregate === 'median') {
+      fileName = `hc_${taxonValue}_${part}_${aggregate}.csv`
     } else {
       fileName = `${aggregate}_hc_${part}_${taxonValue}.csv`
     }

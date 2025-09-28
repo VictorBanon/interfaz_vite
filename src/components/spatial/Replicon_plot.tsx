@@ -18,6 +18,7 @@ interface Count {
   start: number;
   end: number;
   value: number;
+  density?: number; // Agregar densidad
 }
 
 interface View {
@@ -28,6 +29,7 @@ interface View {
 
 interface Tracks {
   counts: { y: number; h: number };
+  density: { y: number; h: number }; // Nuevo track para densidad
   features: { y: number; h: number };
 }
 
@@ -53,9 +55,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     seqids: new Set(),
     view: { seqid: null, start: 1, end: 1e4 },
     pxWidth: 1200,
-    pxHeight: 520,
-    padding: { left: 70, right: 20, top: 30, bottom: 30 },
-    tracks: { counts: { y: 70, h: 160 }, features: { y: 260, h: 210 } },
+    pxHeight: 450, // Reduced height significantly
+    padding: { left: 60, right: 15, top: 20, bottom: 25 },
+    tracks: { 
+      counts: { y: 50, h: 80 }, // Reduced height and spacing
+      density: { y: 140, h: 80 }, // Reduced height and spacing
+      features: { y: 230, h: 150 } // Reduced height and spacing
+    },
   });
 
   const gffInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +99,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     let commentLines = 0;
     let shortLines = 0;
     let invalidCoords = 0;
+    let filteredOut = 0;
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -106,13 +113,20 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       const parts = line.split(/\t/);
       if (parts.length < 9) {
         shortLines++;
-        if (i < 5) { // Debug primeras líneas problemáticas
+        if (i < 5) {
           console.log(`Línea ${i} con ${parts.length} partes:`, line);
         }
         continue;
       }
       
       const [seqid, source, type, start, end, score, strand, phase, attrs] = parts;
+      
+      // Filtrar solo genes (case insensitive)
+      if (type.toLowerCase() !== 'gene') {
+        filteredOut++;
+        continue;
+      }
+      
       const s = parseInt(start, 10);
       const e = parseInt(end, 10);
       
@@ -129,14 +143,15 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       seqids.add(seqid);
       
       if (validLines <= 3) {
-        console.log(`Feature ${validLines}:`, { seqid, type, start: s, end: e });
+        console.log(`Gene ${validLines}:`, { seqid, type, start: s, end: e });
       }
     }
     
     console.log('- Líneas de comentario:', commentLines);
     console.log('- Líneas muy cortas:', shortLines);
+    console.log('- Features filtradas (no genes):', filteredOut);
     console.log('- Coordenadas inválidas:', invalidCoords);
-    console.log('- Líneas válidas procesadas:', validLines);
+    console.log('- Genes válidos procesados:', validLines);
     
     return { feats, seqids: Array.from(seqids) };
   };
@@ -163,6 +178,9 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     const lines = text.split(/\r?\n/);
     let headers: string[] = [];
     
+    console.log('parseCountsCSV debug:');
+    console.log('- Total líneas:', lines.length);
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line.trim()) continue;
@@ -170,6 +188,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       if (i === 0) {
         // Primera línea: headers
         headers = line.split(',');
+        console.log('- Headers encontrados:', headers);
         continue;
       }
       
@@ -179,22 +198,128 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       // Crear objeto con los headers
       const row: any = {};
       headers.forEach((header, idx) => {
-        row[header] = parts[idx];
+        row[header.trim()] = parts[idx]?.trim();
       });
       
-      // Extraer datos necesarios (start, end, ir_count)
+      // Debug primeras filas
+      if (i <= 3) {
+        console.log(`Fila ${i}:`, row);
+      }
+      
+      // Extraer datos necesarios - usar 'count' en lugar de 'ir_count'
       const start = parseInt(row.start, 10);
       const end = parseInt(row.end, 10);
-      const value = parseFloat(row.ir_count);
+      const value = parseFloat(row.count); // Cambio aquí: usar 'count'
+      const density = parseFloat(row.density); // Parsear también densidad
       
-      if ([start, end].some(Number.isNaN) || !isFinite(value)) continue;
+      if ([start, end].some(Number.isNaN) || !isFinite(value) || !isFinite(density)) {
+        if (i <= 5) {
+          console.log(`Fila ${i} saltada por valores inválidos:`, { start, end, value, density, row });
+        }
+        continue;
+      }
       
-      // Usar un seqid genérico o extraer de los datos si está disponible
-      const seqid = row.seqid || selectedOrganism?.['Replicons_name'] || 'chromosome';
+      // Usar el seqid del organismo seleccionado
+      const seqid = selectedOrganism?.['Replicons_name'] || selectedOrganism?.['ID-replicon'] || 'chromosome';
       
-      out.push({ seqid, start: Math.max(1, start), end: Math.max(1, end), value });
+      out.push({ 
+        seqid, 
+        start: Math.max(1, start), 
+        end: Math.max(1, end), 
+        value,
+        density 
+      });
     }
+    
+    console.log('- Conteos válidos parseados:', out.length);
+    if (out.length > 0) {
+      console.log('- Primeros 3 conteos:', out.slice(0, 3));
+      console.log('- Rango de valores count:', {
+        min: Math.min(...out.map(c => c.value)),
+        max: Math.max(...out.map(c => c.value))
+      });
+      console.log('- Rango de valores density:', {
+        min: Math.min(...out.map(c => c.density || 0)),
+        max: Math.max(...out.map(c => c.density || 0))
+      });
+    }
+    
     return out;
+  };
+
+  const parseCSVAsFeatures = (text: string) => {
+    const feats: Feature[] = [];
+    const seqids = new Set<string>();
+    const lines = text.split(/\r?\n/);
+    
+    console.log('parseCSVAsFeatures debug:');
+    console.log('- Total líneas:', lines.length);
+    
+    let headers: string[] = [];
+    let validLines = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      if (i === 0) {
+        headers = line.split(',');
+        console.log('- Headers:', headers);
+        continue;
+      }
+      
+      const parts = line.split(',');
+      if (parts.length < headers.length) continue;
+      
+      const row: any = {};
+      headers.forEach((header, idx) => {
+        row[header.trim()] = parts[idx]?.trim();
+      });
+      
+      // Validar que los campos esenciales existan
+      if (!row.id || !row.start || !row.end) {
+        console.log(`Fila ${i} saltada: faltan campos esenciales`, row);
+        continue;
+      }
+      
+      const start = parseInt(row.start, 10);
+      const end = parseInt(row.end, 10);
+      
+      if (Number.isNaN(start) || Number.isNaN(end)) {
+        console.log(`Fila ${i} saltada: coordenadas inválidas`, { start: row.start, end: row.end });
+        continue;
+      }
+      
+      // Verificar que row.id no sea undefined antes de usar startsWith
+      const type = (row.id && row.id.startsWith('gene-')) ? 'gene' : 'intergenic_region';
+      const seqid = selectedOrganism?.['Replicons_name'] || selectedOrganism?.['ID-replicon'] || 'chromosome';
+      
+      const attrs: Record<string, string> = {
+        ID: row.id || '',
+        Name: row.name || '',
+      };
+      
+      feats.push({
+        seqid,
+        source: 'analysis',
+        type,
+        start,
+        end,
+        score: row.count || '.',
+        strand: row.sense || '+',
+        phase: '.',
+        attrs
+      });
+      
+      seqids.add(seqid);
+      validLines++;
+    }
+    
+    console.log('- Features válidas procesadas:', validLines);
+    console.log('- Genes:', feats.filter(f => f.type === 'gene').length);
+    console.log('- Regiones intergénicas:', feats.filter(f => f.type === 'intergenic_region').length);
+    
+    return { feats, seqids: Array.from(seqids) };
   };
 
   const niceTicks = (min: number, max: number, count = 6) => {
@@ -257,25 +382,17 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
   const filteredFeatures = () => {
     const types = (typeFilterRef.current?.value || '').split(',').map((s) => s.trim()).filter(Boolean);
     const minL = Math.max(1, parseInt(minLenRef.current?.value || '1', 10));
+    
+    // Si no hay filtro de tipos, mostrar tanto genes como intergénicos
+    const defaultTypes = types.length === 0 ? ['gene'] : types;
+    
     const filtered = state.features.filter(
       (f) =>
         (!state.view.seqid || f.seqid === state.view.seqid) &&
-        (types.length === 0 || types.includes(f.type)) &&
+        (defaultTypes.includes(f.type) || defaultTypes.some(t => f.type.toLowerCase().includes(t.toLowerCase()))) &&
         f.end - f.start + 1 >= minL &&
         !(f.end < state.view.start || f.start > state.view.end)
     );
-    
-    // Debug información
-    console.log('Debug filteredFeatures:');
-    console.log('- Total features en state:', state.features.length);
-    console.log('- View seqid:', state.view.seqid);
-    console.log('- View range:', state.view.start, '-', state.view.end);
-    console.log('- Types filter:', types);
-    console.log('- Min length:', minL);
-    console.log('- Features filtradas:', filtered.length);
-    if (filtered.length > 0) {
-      console.log('- Primeras 3 features filtradas:', filtered.slice(0, 3));
-    }
     
     return filtered;
   };
@@ -302,15 +419,16 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     for (const t of ticks) {
       const x = xScale(t);
       addEl('line', { x1: x, y1: state.padding.top, x2: x, y2: H - state.padding.bottom, stroke: '#444', 'stroke-width': 0.5 }, xg);
-      const lbl = addEl('text', { x: x, y: H - 8, 'text-anchor': 'middle', fill: '#ccc', 'font-size': 12 }, xg);
+      const lbl = addEl('text', { x: x, y: H - 6, 'text-anchor': 'middle', fill: '#ccc', 'font-size': 10 }, xg);
       lbl.textContent = t.toLocaleString();
     }
+
+    const cData = countsInView();
 
     // Counts track
     const ct = state.tracks.counts;
     const ch = ct.h;
     const cy = ct.y;
-    const cData = countsInView();
     let cmin = 0, cmax = 1;
     if (cData.length) {
       cmin = Math.min(0, ...cData.map((d) => d.value));
@@ -326,22 +444,46 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       const val = Math.max(cmin, Math.min(cmax, d.value));
       const y = cy + ch - ((val - cmin) / (cmax - cmin)) * ch;
       const rect = addEl('rect', { x: x1, y: Math.min(y, zeroY), width: Math.max(0, x2 - x1), height: Math.abs(zeroY - y), fill: '#4a90e2', opacity: 0.8 });
-      rect.addEventListener('mousemove', (ev) => showTip(ev, `Counts\n${d.seqid}:${d.start}-${d.end} = ${d.value}`));
+      rect.addEventListener('mousemove', (ev) => showTip(ev, `Count\n${d.seqid}:${d.start}-${d.end} = ${d.value}`));
       rect.addEventListener('mouseleave', hideTip);
     }
 
-    addEl('text', { x: 8, y: cy + 12, fill: '#fff', 'font-size': 12, 'font-weight': '600' }).textContent = 'Counts';
+      addEl('text', { x: 6, y: cy + 10, fill: '#fff', 'font-size': 10, 'font-weight': '600' }).textContent = 'Count';    // Density track
+    const dt = state.tracks.density;
+    const dh = dt.h;
+    const dy = dt.y;
+    let dmin = 0, dmax = 1;
+    if (cData.length && cData.some(d => d.density !== undefined)) {
+      const densityValues = cData.map(d => d.density || 0).filter(v => isFinite(v));
+      if (densityValues.length > 0) {
+        dmin = Math.min(0, ...densityValues);
+        dmax = Math.max(...densityValues);
+        if (dmax === dmin) dmax = dmin + 0.1;
+      }
+    }
+    const densityZeroY = dy + dh - ((0 - dmin) / (dmax - dmin)) * dh;
+    addEl('line', { x1: state.padding.left, y1: densityZeroY, x2: W - state.padding.right, y2: densityZeroY, stroke: '#888', 'stroke-dasharray': '4 2' });
 
-    // Features track
+    for (const d of cData) {
+      if (d.density !== undefined && isFinite(d.density)) {
+        const x1 = xScale(Math.max(d.start, state.view.start));
+        const x2 = xScale(Math.min(d.end, state.view.end));
+        const val = Math.max(dmin, Math.min(dmax, d.density));
+        const y = dy + dh - ((val - dmin) / (dmax - dmin)) * dh;
+        const rect = addEl('rect', { x: x1, y: Math.min(y, densityZeroY), width: Math.max(0, x2 - x1), height: Math.abs(densityZeroY - y), fill: '#e67e22', opacity: 0.8 });
+        rect.addEventListener('mousemove', (ev) => showTip(ev, `Density\n${d.seqid}:${d.start}-${d.end} = ${d.density?.toFixed(3)}`));
+        rect.addEventListener('mouseleave', hideTip);
+      }
+    }
+
+    addEl('text', { x: 6, y: dy + 10, fill: '#fff', 'font-size': 10, 'font-weight': '600' }).textContent = 'Density';
+
+    // Features track (solo genes)
     const ft = state.tracks.features;
     const fy = ft.y;
     const fh = ft.h;
     const feats = filteredFeatures().sort((a, b) => a.start - b.start);
     const lanes: { x2: number }[] = [];
-
-    console.log('Debug renderSVG Features:');
-    console.log('- Features para renderizar:', feats.length);
-    console.log('- Track Y:', fy, 'Height:', fh);
 
     function placeLane(x1: number, x2: number) {
       for (let i = 0; i < lanes.length; i++) {
@@ -354,24 +496,12 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       return lanes.length - 1;
     }
 
-    const laneH = 16, laneGap = 6, maxLanes = Math.floor(fh / (laneH + laneGap));
+    const laneH = 12, laneGap = 4, maxLanes = Math.floor(fh / (laneH + laneGap));
 
     let renderedCount = 0;
     for (const f of feats) {
       const x1 = xScale(Math.max(f.start, state.view.start));
       const x2 = xScale(Math.min(f.end, state.view.end));
-      
-      if (renderedCount < 3) {
-        console.log(`Feature ${renderedCount}:`, {
-          seqid: f.seqid,
-          start: f.start,
-          end: f.end,
-          type: f.type,
-          x1,
-          x2,
-          skip: x2 <= x1
-        });
-      }
       
       if (x2 <= x1) continue;
       const lane = Math.min(placeLane(x1, x2), maxLanes - 1);
@@ -383,15 +513,14 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
         showTip(ev, `${f.type} ${name ? '(' + name + ')' : ''}\n${f.seqid}:${f.start}-${f.end} ${f.strand}`);
       });
       rect.addEventListener('mouseleave', hideTip);
-      if (x2 - x1 > 40) {
+      if (x2 - x1 > 35) {
         const name = f.attrs.Name || f.attrs.gene || f.attrs.ID || f.type;
-        const txt = addEl('text', { x: x1 + 4, y: y + laneH * 0.72, fill: '#ccc', 'font-size': 12 });
+        const txt = addEl('text', { x: x1 + 3, y: y + laneH * 0.75, fill: '#ccc', 'font-size': 9 });
         txt.textContent = name;
       }
       renderedCount++;
     }
-    console.log('Total features renderizadas:', renderedCount);
-    addEl('text', { x: 8, y: fy + 12, fill: '#fff', 'font-size': 12, 'font-weight': '600' }).textContent = 'Features';
+    addEl('text', { x: 6, y: fy + 10, fill: '#fff', 'font-size': 10, 'font-weight': '600' }).textContent = 'Genes';
   };
 
   // --- Fit to data ---
@@ -429,168 +558,68 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
 
   // --- Load files when organism is selected ---
   useEffect(() => {
-    if (!selectedOrganism || !selectedOrganism.ID) return;
+    if (!selectedOrganism || !selectedOrganism['ID-replicon']) return;
     
     console.log('Organismo seleccionado:', selectedOrganism);
     
     const loadOrganismFiles = async () => {
       try {
-        // Construir las rutas de los archivos basado en el ID del organismo
         const genomePath = `/data/${selectedOrganism.ID}`;
-        // Reordenamos para intentar primero con los archivos que sabemos que existen
-        const gffPath1 = `${genomePath}/preprocessing/${selectedOrganism.ID}_genomic.gff`; // Patrón real encontrado
-        const gffPath2 = `${genomePath}/preprocessing/${selectedOrganism["ID-replicon"]}_genomic.gff`;
-        const gffPath3 = `${genomePath}/preprocessing/${selectedOrganism["ID-replicon"]}_protein.gff`;
-        const countsPath = `/ir_count_by_region.csv`; // Archivo global en la raíz
+        const repliconId = selectedOrganism['ID-replicon'];
+        // Corregir aquí: usar repliconId directamente sin "chromosome_" extra
+        const csvPath = `${genomePath}/analysis/${repliconId}_ir_region.csv`;
         
-        console.log('Intentando cargar archivos:');
-        console.log('- GFF principal (ID completo):', gffPath1);
-        console.log('- GFF alternativo (ID-replicon):', gffPath2);
-        console.log('- GFF protein (fallback):', gffPath3);
-        console.log('- Counts:', countsPath);
+        console.log('Intentando cargar archivo CSV:', csvPath);
         
-        // Cargar archivo GFF con fallback
-        let gffLoaded = false;
-        
-        // Intentar con el primer archivo
+        // Cargar el archivo CSV que contiene tanto features como counts
         try {
-          console.log('Cargando archivo GFF principal (ID completo)...');
-          const gffResponse = await fetch(gffPath1);
-          console.log('Respuesta GFF principal:', gffResponse.status, gffResponse.statusText);
+          const csvResponse = await fetch(csvPath);
+          console.log('Respuesta CSV:', csvResponse.status, csvResponse.statusText);
           
-          if (gffResponse.ok && gffResponse.status === 200) {
-            const gffText = await gffResponse.text();
-            console.log('Texto GFF cargado, longitud:', gffText.length);
+          if (csvResponse.ok && csvResponse.status === 200) {
+            const csvText = await csvResponse.text();
+            console.log('Texto CSV cargado, longitud:', csvText.length);
             
-            // Mostrar las primeras líneas del archivo para debug
-            console.log('Primeras 10 líneas del archivo GFF:');
-            console.log(gffText.split('\n').slice(0, 10).join('\n'));
+            // Parsear como features y como counts
+            const { feats, seqids } = parseCSVAsFeatures(csvText);
+            const counts = parseCountsCSV(csvText);
             
-            // Verificar que el contenido es realmente un GFF válido
-            if (gffText.includes('\t') && (gffText.includes('##gff-version') || gffText.split('\n').some(line => line.split('\t').length >= 9))) {
-              gffLoaded = true;
-              const { feats, seqids } = parseGFF(gffText);
-              console.log('Features parseadas:', feats.length, 'Seqids:', seqids);
+            console.log('Procesado - Features:', feats.length, 'Counts:', counts.length, 'Seqids:', seqids);
+            
+            setState((s) => {
+              const newState = { 
+                ...s, 
+                features: feats,
+                counts,
+                seqids: new Set([...s.seqids, ...seqids]),
+                view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view
+              };
               
-              setState((s) => {
-                const newState = { 
-                  ...s, 
-                  features: feats, 
-                  seqids: new Set([...s.seqids, ...seqids]),
-                  view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view
-                };
-                
-                // Auto-fit to data cuando se cargan features
-                if (feats.length > 0 && seqids.length > 0) {
-                  const featSeq = feats.filter(f => f.seqid === seqids[0]);
-                  if (featSeq.length > 0) {
-                    const minPos = Math.min(...featSeq.map(f => f.start));
-                    const maxPos = Math.max(...featSeq.map(f => f.end));
-                    const pad = Math.round((maxPos - minPos) * 0.1);
-                    newState.view = {
-                      seqid: seqids[0],
-                      start: Math.max(1, minPos - pad),
-                      end: maxPos + pad
-                    };
-                  }
-                }
-                
-                return newState;
-              });
-            } else {
-              console.log('El contenido del archivo principal no parece ser un GFF válido, longitud:', gffText.length);
-            }
-          }
-        } catch (err) {
-          console.error('Error cargando archivo GFF principal:', err);
-        }
-        
-        // Si no se pudo cargar el archivo principal, intentar con el alternativo
-        if (!gffLoaded) {
-          try {
-            console.log('Intentando cargar archivo GFF alternativo (ID-replicon)...');
-            const gffResponse = await fetch(gffPath2);
-            console.log('Respuesta GFF alternativo:', gffResponse.status, gffResponse.statusText);
-            
-            if (gffResponse.ok && gffResponse.status === 200) {
-              const gffText = await gffResponse.text();
-              console.log('Texto GFF alternativo cargado, longitud:', gffText.length);
-              
-              // Verificar que el contenido es realmente un GFF válido
-              if (gffText.includes('\t') && (gffText.includes('##gff-version') || gffText.split('\n').some(line => line.split('\t').length >= 9))) {
-                gffLoaded = true;
-                const { feats, seqids } = parseGFF(gffText);
-                console.log('Features parseadas del archivo alternativo:', feats.length, 'Seqids:', seqids);
-                
-                setState((s) => {
-                  const newState = { 
-                    ...s, 
-                    features: feats, 
-                    seqids: new Set([...s.seqids, ...seqids]),
-                    view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view
+              // Auto-fit to data
+              if (feats.length > 0 && seqids.length > 0) {
+                const featSeq = feats.filter(f => f.seqid === seqids[0]);
+                if (featSeq.length > 0) {
+                  const minPos = Math.min(...featSeq.map(f => f.start));
+                  const maxPos = Math.max(...featSeq.map(f => f.end));
+                  const pad = Math.round((maxPos - minPos) * 0.05);
+                  newState.view = {
+                    seqid: seqids[0],
+                    start: Math.max(1, minPos - pad),
+                    end: maxPos + pad
                   };
-                  
-                  // Auto-fit to data cuando se cargan features
-                  if (feats.length > 0 && seqids.length > 0) {
-                    const featSeq = feats.filter(f => f.seqid === seqids[0]);
-                    if (featSeq.length > 0) {
-                      const minPos = Math.min(...featSeq.map(f => f.start));
-                      const maxPos = Math.max(...featSeq.map(f => f.end));
-                      const pad = Math.round((maxPos - minPos) * 0.1);
-                      newState.view = {
-                        seqid: seqids[0],
-                        start: Math.max(1, minPos - pad),
-                        end: maxPos + pad
-                      };
-                    }
-                  }
-                  
-                  return newState;
-                });
-              } else {
-                console.log('El contenido del archivo alternativo no parece ser un GFF válido');
+                }
               }
-            }
-          } catch (err) {
-            console.error('Error cargando archivo GFF alternativo:', err);
-          }
-        }
-        
-        // Cargar archivo de conteos
-        try {
-          console.log('Cargando archivo de conteos...');
-          const countsResponse = await fetch(countsPath);
-          console.log('Respuesta Counts:', countsResponse.status, countsResponse.statusText);
-          
-          if (countsResponse.ok) {
-            const countsText = await countsResponse.text();
-            console.log('Texto de conteos cargado, longitud:', countsText.length);
-            
-            // Filtrar los conteos solo para el organismo seleccionado
-            const allCounts = parseCountsCSV(countsText);
-            console.log('Todos los conteos parseados:', allCounts.length);
-            
-            // Asignar el seqid correcto a todos los conteos
-            const countsWithSeqid = allCounts.map(count => ({
-              ...count,
-              seqid: selectedOrganism['Replicons_name'] || 'chromosome'
-            }));
-            
-            console.log('Conteos filtrados para el organismo:', countsWithSeqid.length);
-            
-            setState((s) => ({ 
-              ...s, 
-              counts: countsWithSeqid, 
-              seqids: new Set([...s.seqids, ...countsWithSeqid.map(c => c.seqid)]) 
-            }));
+              
+              return newState;
+            });
           } else {
-            console.error('Error al cargar conteos:', countsResponse.status, countsResponse.statusText);
+            console.error('No se pudo cargar el archivo CSV:', csvResponse.status);
           }
         } catch (err) {
-          console.error('Error cargando archivo de conteos:', err);
+          console.error('Error cargando archivo CSV:', err);
         }
       } catch (err) {
-        console.error('Error general cargando archivos del organismo:', err);
+        console.error('Error general:', err);
       }
     };
     
@@ -766,7 +795,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
             <input 
               ref={typeFilterRef}
               type="text"
-              placeholder="CDS,gene..."
+              placeholder="gene,..."
               style={{
                 padding: '3px 6px',
                 backgroundColor: '#404040',

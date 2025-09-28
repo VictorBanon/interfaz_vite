@@ -24,47 +24,7 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [popup, setPopup] = useState<PopupState>({ column: null, position: { x: 0, y: 0 } })
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null })
-  const [rowsPerPage, setRowsPerPage] = useState<number>(10)
-
-  // Efecto para calcular el número de filas automáticamente
-  useEffect(() => {
-    const calculateRowsPerPage = () => {
-      const tableContainer = document.querySelector('.table-container')
-      
-      if (tableContainer) {
-        const containerHeight = tableContainer.clientHeight
-        const rowHeight = 21 // Altura de cada fila de datos (20px + 1px border)
-        const headerHeight = 26 // Altura fija del header (25px + 1px border)
-        const minReservedSpace = 2 // Espacio mínimo para evitar cortes
-        
-        const availableHeight = containerHeight - headerHeight - minReservedSpace
-        const calculatedRows = Math.floor(availableHeight / rowHeight)
-        
-        const finalRows = Math.max(1, calculatedRows)
-        
-        console.log('Cálculo optimizado:', {
-          containerHeight,
-          headerHeight,
-          minReservedSpace,
-          availableHeight,
-          rowHeight,
-          calculatedRows: finalRows
-        })
-        
-        // Establecer variable CSS para distribución uniforme
-        const tableElement = document.querySelector('.csv-table')
-        if (tableElement) {
-          (tableElement as HTMLElement).style.setProperty('--rows-count', finalRows.toString())
-        }
-        
-        setRowsPerPage(finalRows)
-      }
-    }
-
-    setTimeout(calculateRowsPerPage, 200) // Más tiempo para que el DOM esté listo
-    window.addEventListener('resize', calculateRowsPerPage)
-    return () => window.removeEventListener('resize', calculateRowsPerPage)
-  }, [])
+  const rowsPerPage = 10
 
   // Load default CSV on mount
   useEffect(() => {
@@ -181,69 +141,13 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
     setCurrentPage(page)
   }
 
-  // Función para generar botones de paginación limitados
-  const getPaginationButtons = () => {
-    const maxButtons = 7 // Máximo 7 botones
-    const buttons = []
-    
-    if (totalPages <= maxButtons) {
-      // Si hay pocas páginas, mostrar todas
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(i)
-      }
-    } else {
-      // Lógica para páginas limitadas
-      const startPage = Math.max(1, currentPage - 2)
-      const endPage = Math.min(totalPages, currentPage + 2)
-      
-      if (startPage > 1) {
-        buttons.push(1)
-        if (startPage > 2) buttons.push('...')
-      }
-      
-      for (let i = startPage; i <= endPage; i++) {
-        buttons.push(i)
-      }
-      
-      if (endPage < totalPages) {
-        if (endPage < totalPages - 1) buttons.push('...')
-        buttons.push(totalPages)
-      }
-    }
-    
-    return buttons
-  }
-
-  // Función para calcular el número máximo de caracteres por columna
-  const calculateMaxCharsPerColumn = (): number => {
-    const tableContainer = document.querySelector('.table-container')
-    if (!tableContainer || data.length === 0) return 10
-    
-    const containerWidth = tableContainer.clientWidth
-    const numColumns = Object.keys(data[0]).length
-    const columnWidth = containerWidth / numColumns
-    // Estimando ~5px por carácter con el nuevo tamaño de fuente reducido
-    const maxChars = Math.floor((columnWidth - 15) / 5) // 15px para padding y bordes
-    return Math.max(10, maxChars) // Mínimo 10 caracteres
-  }
-
-  // Función para truncar texto dinámicamente
-  const truncateText = (text: string, maxLength?: number): string => {
-    const dynamicMaxLength = maxLength || calculateMaxCharsPerColumn()
-    if (text.length <= dynamicMaxLength) return text
-    return text.substring(0, dynamicMaxLength) + '...'
-  }
-
   const handleColumnClick = (event: React.MouseEvent, column: string) => {
     event.stopPropagation()
-    console.log('Column clicked:', column)
     const rect = event.currentTarget.getBoundingClientRect()
-    const newPopup = {
+    setPopup({
       column: popup.column === column ? null : column,
       position: { x: rect.left, y: rect.bottom }
-    }
-    console.log('Setting popup:', newPopup)
-    setPopup(newPopup)
+    })
   }
 
   // Cerrar popup al hacer clic fuera
@@ -307,31 +211,22 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
                 }}
                 style={{ cursor: 'pointer' }}
               >
-                {Object.values(row).map((value, i) => {
-                  const valueStr = value?.toString() || ''
-                  return (
-                    <td key={i} title={valueStr}>
-                      {truncateText(valueStr)}
-                    </td>
-                  )
-                })}
+                {Object.values(row).map((value, i) => (
+                  <td key={i}>{value?.toString() || ''}</td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="pagination">
-        {getPaginationButtons().map((page, index) => (
+        {Array.from({ length: totalPages }, (_, index) => (
           <button
-            key={index}
-            className={
-              typeof page === 'number' && currentPage === page ? 'active' : 
-              typeof page === 'string' ? 'dots' : ''
-            }
-            onClick={() => typeof page === 'number' && handlePageChange(page)}
-            disabled={typeof page === 'string'}
+            key={index + 1}
+            className={currentPage === index + 1 ? 'active' : ''}
+            onClick={() => handlePageChange(index + 1)}
           >
-            {page}
+            {index + 1}
           </button>
         ))}
       </div>
@@ -341,10 +236,10 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
         <div
           className="column-popup"
           style={{
-            position: 'fixed',
+            position: 'absolute',
             left: popup.position.x,
             top: popup.position.y,
-            zIndex: 99999
+            zIndex: 1000
           }}
           onClick={(e) => e.stopPropagation()}
         >

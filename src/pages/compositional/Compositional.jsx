@@ -1,19 +1,47 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Sidebar from '../../components/sidebar/Sidebar' 
 import CSVWindow from '../../components/table/Table' 
+import TableIR from '../../components/compositional/table_ir'
+import ClusterIR from '../../components/compositional/cluster_ir'
 
 const Compositional = () => {
+  const [selectedRow, setSelectedRow] = useState(null)
+  const [taxon, setTaxon] = useState('superkingdom')
+  const [taxonValue, setTaxonValue] = useState('Bacteria')
+
+  const handleRowClick = (row) => {
+    setSelectedRow(row)
+  }
+
+  // Callbacks para manejar cambios en los dropdowns del Sidebar
+  const handleTaxonChange = (newTaxon) => {
+    setTaxon(newTaxon)
+  }
+
+  const handleTaxonValueChange = (newTaxonValue) => {
+    setTaxonValue(newTaxonValue)
+  }
+
   return (
     <div className="dashboard">
-      <Sidebar />
+      <Sidebar 
+        onTaxonChange={handleTaxonChange}
+        onTaxonValueChange={handleTaxonValueChange}
+        taxon={taxon}
+        taxonValue={taxonValue}
+      />
       <main className="main-content">
         <div className="grid">
-          <div className="card">Ventana 1</div>
+          <div className="card">
+            <ClusterIR taxon={taxon} taxonValue={taxonValue} />
+          </div>
           <div className="card">Ventana 2</div>
-          <div className="card">Ventana 3</div>
+          <div className="card">
+            <TableIR selectedRow={selectedRow} />
+          </div>
           <div className="card">
           {/* Ventana 4 */ }
-          <CSVWindow />
+          <CSVWindow onRowClick={handleRowClick} />
           </div>
         </div>
       </main>     
