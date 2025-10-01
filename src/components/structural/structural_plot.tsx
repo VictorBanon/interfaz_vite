@@ -38,13 +38,17 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
   const [simulatedData, setSimulatedData] = useState<SimulatedData[]>([]) // Datos simulados
 
   // Función para cargar datos de secuencias
-  const loadSequenceData = React.useCallback(async (id: string, part: string) => {
-    if (!id) return []
+  const loadSequenceData = React.useCallback(async (id: string, idReplicon: string, part: string) => {
+    if (!id || !idReplicon) return []
     
     try {
-      const sequenceFilePath = `/data/${id}/analysis/chromosome_${id}_${part}_obs_top10_per_gap_size.csv`
+      const sequenceFilePath = `/data/${id}/analysis/${idReplicon}_${part}_obs_top10_per_gap_size.csv`
+      console.log('Loading sequence data from:', sequenceFilePath)
       const response = await fetch(sequenceFilePath)
-      if (!response.ok) return []
+      if (!response.ok) {
+        console.warn('Failed to load sequence data:', sequenceFilePath)
+        return []
+      }
 
       return new Promise<SequenceData[]>((resolve) => {
         Papa.parse(response.url, {
@@ -71,13 +75,17 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
   }, [])
 
   // Función para cargar datos observados agregados
-  const loadAggregatedData = React.useCallback(async (id: string, part: string) => {
-    if (!id) return []
+  const loadAggregatedData = React.useCallback(async (id: string, idReplicon: string, part: string) => {
+    if (!id || !idReplicon) return []
     
     try {
-      const filePath = `/data/${id}/analysis/chromosome_${id}_${part}_result_obs_aggregated.csv`
+      const filePath = `/data/${id}/analysis/${idReplicon}_${part}_result_obs_aggregated.csv`
+      console.log('Loading aggregated data from:', filePath)
       const response = await fetch(filePath)
-      if (!response.ok) return []
+      if (!response.ok) {
+        console.warn('Failed to load aggregated data:', filePath)
+        return []
+      }
 
       return new Promise<AggregatedData[]>((resolve) => {
         Papa.parse(response.url, {
@@ -110,13 +118,17 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
   }, [])
 
   // Función para cargar datos simulados agregados
-  const loadSimulatedData = React.useCallback(async (id: string, part: string) => {
-    if (!id) return []
+  const loadSimulatedData = React.useCallback(async (id: string, idReplicon: string, part: string) => {
+    if (!id || !idReplicon) return []
     
     try {
-      const filePath = `/data/${id}/analysis/chromosome_${id}_${part}_result_sim_aggregated.csv`
+      const filePath = `/data/${id}/analysis/${idReplicon}_${part}_result_sim_aggregated.csv`
+      console.log('Loading simulated data from:', filePath)
       const response = await fetch(filePath)
-      if (!response.ok) return []
+      if (!response.ok) {
+        console.warn('Failed to load simulated data:', filePath)
+        return []
+      }
 
       return new Promise<SimulatedData[]>((resolve) => {
         Papa.parse(response.url, {
@@ -240,9 +252,9 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
         }
         
         if (sequenceInfo) {
-          // Agregar información de los top 3 motivos más frecuentes
-          const topMotifs = sequenceInfo.motifs.slice(0, 3)
-          const topCounts = sequenceInfo.counts.slice(0, 3)
+          // Agregar información de los top 5 motivos más frecuentes
+          const topMotifs = sequenceInfo.motifs.slice(0, 5)
+          const topCounts = sequenceInfo.counts.slice(0, 5)
           
           hoverText += '<br><br>Top motifs:'
           topMotifs.forEach((motif, idx) => {
@@ -282,9 +294,9 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
         if (!response.ok) throw new Error('No se pudo cargar el archivo')
 
         // Cargar todos los datos en paralelo
-        const sequenceDataPromise = loadSequenceData(id, part)
-        const aggregatedDataPromise = loadAggregatedData(id, part)
-        const simulatedDataPromise = loadSimulatedData(id, part)
+        const sequenceDataPromise = loadSequenceData(id, idReplicon, part)
+        const aggregatedDataPromise = loadAggregatedData(id, idReplicon, part)
+        const simulatedDataPromise = loadSimulatedData(id, idReplicon, part)
         
         Papa.parse(response.url, {
           download: true,

@@ -6,6 +6,7 @@ interface ClusterData {
   string: string
   cluster_id: number
   'ID-replicon': string
+  species: string
 }
 
 interface ClusterIRProps {
@@ -163,7 +164,8 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
               return {
                 string: row.string || '',
                 cluster_id: parseInt(row.cluster_id, 10) || 0,
-                'ID-replicon': row['ID-replicon'] || ''
+                'ID-replicon': row['ID-replicon'] || '',
+                species: row.Species || row.species || ''  // Try both capital and lowercase
               }
             }) as ClusterData[]
             setData(processedData)
@@ -211,7 +213,8 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
       const matchesGeneral = generalFilter === '' || 
         row.string.toLowerCase().includes(generalFilter.toLowerCase()) ||
         row.cluster_id.toString().includes(generalFilter) ||
-        row['ID-replicon'].toLowerCase().includes(generalFilter.toLowerCase())
+        row['ID-replicon'].toLowerCase().includes(generalFilter.toLowerCase()) ||
+        row.species.toLowerCase().includes(generalFilter.toLowerCase())
 
       // Aplicar filtro de cluster específico
       const matchesCluster = clusterFilter === '' || 
@@ -275,7 +278,7 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
     if (!tableContainer || data.length === 0) return 10
     
     const containerWidth = tableContainer.clientWidth
-    const numColumns = 3 // string, cluster_id, ID-replicon
+    const numColumns = 4 // string, cluster_id, ID-replicon, species
     const columnWidth = containerWidth / numColumns
     // Estimando ~5px por carácter con el nuevo tamaño de fuente reducido
     const maxChars = Math.floor((columnWidth - 15) / 5) // 15px para padding y bordes
@@ -349,6 +352,7 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
                   <th>String</th>
                   <th>Cluster ID</th>
                   <th>ID-replicon</th>
+                  <th>Species</th>
                 </tr>
               </thead>
               <tbody>
@@ -362,6 +366,9 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
                     </td>
                     <td title={row['ID-replicon']}>
                       {truncateText(row['ID-replicon'])}
+                    </td>
+                    <td title={row.species}>
+                      {truncateText(row.species)}
                     </td>
                   </tr>
                 ))}

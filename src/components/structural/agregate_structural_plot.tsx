@@ -13,6 +13,8 @@ interface AggregateProps {
   taxon?: string
   taxonValue?: string
   part?: string
+  maxPC?: number
+  selectedPCs?: number[]
 }
 
 const AggregateStructural: React.FC<AggregateProps> = ({ 
@@ -21,10 +23,12 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   pcY,
   taxon,
   taxonValue, 
-  part
+  part,
+  maxPC = 6,
+  selectedPCs = [1, 2, 3, 4, 5, 6]
 }) => { 
 
-  const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any }>({ pcX: [], pcY: [] })
+  const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any; acpData?: any }>({ pcX: [], pcY: [] })
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -255,6 +259,32 @@ const AggregateStructural: React.FC<AggregateProps> = ({
       }
     } 
 
+    const fetchACPData = async (filePath: string): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        Papa.parse(filePath, {
+          download: true,
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: (result: any) => {
+            const data = result.data as any[]
+            console.log('ACP Data parsed:', data)
+            
+            // Group rows by color for ACP visualization
+            const colorGroups: { [key: string]: any[] } = {}
+            data.forEach((row: any) => {
+              const color = row.color || "Unknown"
+              if (!colorGroups[color]) colorGroups[color] = []
+              colorGroups[color].push(row)
+            })
+            
+            resolve({ data, colorGroups })
+          },
+          error: (error: any) => reject(error)
+        })
+      })
+    }
+
     const loadCsvData = async () => {
       try {
         setLoading(true)
@@ -324,6 +354,39 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               minMaxData: undefined
             })
           }
+        } else if (aggregate === "ACPvsAll") {
+          try {
+            // Para ACPvsAll - solo cargar datos ACP (ya contiene todos los PCs)
+            if (taxon && taxonValue && part) {
+              const dynamicACPPath = await buildACPFilePath(taxon, taxonValue, part, 'acp', pcX, pcY)
+              console.log('Dynamic ACPvsAll path:', { dynamicACPPath })
+              
+              const acpData = await fetchACPData(dynamicACPPath)
+              setCsvData({ 
+                pcX: [], 
+                pcY: [],
+                acpData: acpData,
+                minMaxData: undefined,
+                meanMedianData: undefined 
+              })
+            } else {
+              throw new Error('Missing required parameters for dynamic path')
+            }
+          } catch (error) {
+            // Fallback a rutas estáticas para ACPvsAll
+            console.log('Dynamic paths failed, using fallback for ACPvsAll:', error)
+            const fallbackACPPath = `/data/philogenie/Bacteria/acp_hc_${part || 'all'}_Bacteria.csv`
+            console.log('Loading ACPvsAll data from fallback:', { fallbackACPPath })
+            
+            const acpData = await fetchACPData(fallbackACPPath)
+            setCsvData({ 
+              pcX: [], 
+              pcY: [],
+              acpData: acpData,
+              minMaxData: undefined,
+              meanMedianData: undefined 
+            })
+          }
         } else {
           try {
             // Para PC analysis - usar rutas dinámicas
@@ -373,7 +436,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     }
 
     loadCsvData()
-  }, [aggregate, pcX, pcY, taxon, taxonValue, part])
+  }, [aggregate, pcX, pcY, taxon, taxonValue, part, selectedPCs])
 
   console.log('CSV Data:', csvData)
   console.log('Current aggregate type:', aggregate)
@@ -721,6 +784,169 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 font: { size: 12 }
               } 
             }}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+            config={{ 
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Para ACPvsAll
+  if (aggregate === "ACPvsAll") {
+    const acpData = csvData.acpData
+    
+    if (!acpData) {
+      return <div>Cargando datos ACPvsAll...</div>
+    }
+
+    // Usar selectedPCs en lugar de detectar automáticamente
+    const availablePCs = selectedPCs.filter(pc => {
+      if (acpData.data && acpData.data.length > 0) {
+        const firstRow = acpData.data[0]
+        return firstRow[`PC${pc}`] !== undefined && firstRow[`PC${pc}`] !== null
+      }
+      return false
+    })
+    
+    const numPCs = availablePCs.length
+    if (numPCs === 0) {
+      return <div>No se encontraron componentes principales seleccionados en los datos</div>
+    }
+
+    console.log('PCs disponibles:', availablePCs)
+    
+    // Definir colores fijos para cada grupo
+    const colorGroups = Object.keys(acpData.colorGroups)
+    const fixedColors = [
+      '#1f77b4', // azul
+      '#ff7f0e', // naranja
+      '#2ca02c', // verde
+      '#d62728', // rojo
+      '#9467bd', // púrpura
+      '#8c564b', // marrón
+      '#e377c2', // rosa
+      '#7f7f7f', // gris
+      '#bcbd22', // oliva
+      '#17becf'  // cian
+    ]
+    
+    // Crear mapeo de colores fijo
+    const colorMapping: { [key: string]: string } = {}
+    colorGroups.forEach((group, index) => {
+      colorMapping[group] = fixedColors[index % fixedColors.length]
+    })
+    
+    // Crear todas las trazas para cada combinación de PCs
+    const allTraces: any[] = []
+    
+    // Crear cada subplot individualmente
+    availablePCs.forEach((pcY, rowIndex) => {
+      availablePCs.forEach((pcX, colIndex) => {
+        // Crear trazas para cada color en este subplot
+        Object.entries(acpData.colorGroups).forEach(([color, points]) => {
+          const pointsArray = points as any[]
+          const subplotIndex = rowIndex * numPCs + colIndex + 1
+          
+          allTraces.push({
+            x: pointsArray.map(row => row[`PC${pcX}`] || 0),
+            y: pointsArray.map(row => row[`PC${pcY}`] || 0),
+            text: pointsArray.map(row => 
+              `ID: ${row.id || ""}<br>PC${pcX}: ${(row[`PC${pcX}`] || 0).toFixed(3)}<br>PC${pcY}: ${(row[`PC${pcY}`] || 0).toFixed(3)}`
+            ),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+              size: 6,
+              color: colorMapping[color], // Usar color fijo
+              opacity: 0.7
+            },
+            name: `${color}`,
+            legendgroup: color,
+            showlegend: rowIndex === 0 && colIndex === 0, // Solo mostrar leyenda en el primer subplot
+            xaxis: `x${subplotIndex}`,
+            yaxis: `y${subplotIndex}`,
+            hoverinfo: 'text'
+          })
+        })
+      })
+    })
+
+    // Crear configuración de layout con subplots manuales
+    const layoutConfig: any = {
+      autosize: true,
+      margin: { l: 40, r: 20, t: 60, b: 40 }, // Aumentar margen superior para títulos arriba
+      showlegend: true,
+      legend: {
+        x: 1.01,
+        y: 1,
+        xanchor: 'left',
+        yanchor: 'top',
+        font: { size: 10 }
+      },
+      hoverlabel: {
+        bgcolor: 'white',
+        font: { size: 10 }
+      }
+    }
+
+    // Configurar dominios para cada subplot
+    availablePCs.forEach((pcY, rowIndex) => {
+      availablePCs.forEach((pcX, colIndex) => {
+        const subplotIndex = rowIndex * numPCs + colIndex + 1
+        const axisName = subplotIndex === 1 ? '' : subplotIndex.toString()
+        
+        // Calcular dominios
+        const colWidth = 0.95 / numPCs
+        const rowHeight = 0.95 / numPCs
+        const xDomain = [colIndex * colWidth + 0.02, (colIndex + 1) * colWidth]
+        const yDomain = [1 - (rowIndex + 1) * rowHeight, 1 - rowIndex * rowHeight - 0.02]
+        
+        // Configurar eje X - mostrar título en la primera fila (arriba)
+        layoutConfig[`xaxis${axisName}`] = {
+          domain: xDomain,
+          title: rowIndex === 0 ? {
+            text: `PC${pcX}`,
+            font: { size: 12, color: 'black' },
+            standoff: 20
+          } : undefined,
+          titlefont: { size: 12 },
+          tickfont: { size: 8 },
+          showgrid: true,
+          zeroline: true,
+          showticklabels: rowIndex === numPCs - 1,
+          side: rowIndex === 0 ? 'top' : 'bottom'
+        }
+        
+        // Configurar eje Y - solo mostrar título en la primera columna
+        layoutConfig[`yaxis${axisName}`] = {
+          domain: yDomain,
+          title: colIndex === 0 ? {
+            text: `PC${pcY}`,
+            font: { size: 12, color: 'black' },
+            standoff: 20
+          } : undefined,
+          titlefont: { size: 12 },
+          tickfont: { size: 8 },
+          showgrid: true,
+          zeroline: true,
+          showticklabels: colIndex === 0,
+          side: 'left'
+        }
+      })
+    })
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ flex: 1 }}>
+          <Plot
+            data={allTraces}
+            layout={layoutConfig}
             style={{ width: '100%', height: '100%' }}
             useResizeHandler={true}
             config={{ 

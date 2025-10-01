@@ -21,6 +21,12 @@ interface Count {
   density?: number; // Agregar densidad
 }
 
+interface HistogramBin {
+  bin_start: number;
+  bin_end: number;
+  count: number;
+}
+
 interface View {
   seqid: string | null;
   start: number;
@@ -30,12 +36,14 @@ interface View {
 interface Tracks {
   counts: { y: number; h: number };
   density: { y: number; h: number }; // Nuevo track para densidad
+  histogram: { y: number; h: number }; // Nuevo track para histograma IR
   features: { y: number; h: number };
 }
 
 interface State {
   features: Feature[];
   counts: Count[];
+  histogram: HistogramBin[]; // Agregar datos del histograma
   seqids: Set<string>;
   view: View;
   pxWidth: number;
@@ -52,15 +60,17 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
   const [state, setState] = useState<State>({
     features: [],
     counts: [],
+    histogram: [], // Inicializar array vacío para histograma
     seqids: new Set(),
     view: { seqid: null, start: 1, end: 1e4 },
-    pxWidth: 1200,
-    pxHeight: 450, // Reduced height significantly
-    padding: { left: 60, right: 15, top: 20, bottom: 25 },
+    pxWidth: 1000,
+    pxHeight: 400, // Reduced height for compact view
+    padding: { left: 50, right: 15, top: 15, bottom: 20 },
     tracks: { 
-      counts: { y: 50, h: 80 }, // Reduced height and spacing
-      density: { y: 140, h: 80 }, // Reduced height and spacing
-      features: { y: 230, h: 150 } // Reduced height and spacing
+      counts: { y: 30, h: 50 }, // Further reduced height and spacing
+      density: { y: 90, h: 50 }, // Further reduced height and spacing
+      histogram: { y: 150, h: 50 }, // Further reduced histogram track
+      features: { y: 210, h: 120 } // Reduced features track height
     },
   });
 
@@ -322,6 +332,70 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     return { feats, seqids: Array.from(seqids) };
   };
 
+  const parseHistogramCSV = (text: string) => {
+    const out: HistogramBin[] = [];
+    const lines = text.split(/\r?\n/);
+    let headers: string[] = [];
+    
+    console.log('parseHistogramCSV debug:');
+    console.log('- Total líneas:', lines.length);
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      if (i === 0) {
+        // Primera línea: headers
+        headers = line.split(',');
+        console.log('- Headers encontrados:', headers);
+        continue;
+      }
+      
+      const parts = line.split(',');
+      if (parts.length < headers.length) continue;
+      
+      // Crear objeto con los headers
+      const row: any = {};
+      headers.forEach((header, idx) => {
+        row[header.trim()] = parts[idx]?.trim();
+      });
+      
+      // Debug primeras filas
+      if (i <= 3) {
+        console.log(`Fila ${i}:`, row);
+      }
+      
+      // Extraer datos necesarios
+      const bin_start = parseFloat(row.bin_start);
+      const bin_end = parseFloat(row.bin_end);
+      const count = parseFloat(row.count);
+      
+      if ([bin_start, bin_end, count].some(val => Number.isNaN(val) || !isFinite(val))) {
+        if (i <= 5) {
+          console.log(`Fila ${i} saltada: valores inválidos`, { bin_start: row.bin_start, bin_end: row.bin_end, count: row.count });
+        }
+        continue;
+      }
+      
+      out.push({ 
+        bin_start, 
+        bin_end, 
+        count 
+      });
+    }
+    
+    console.log('- Bins válidos parseados:', out.length);
+    if (out.length > 0) {
+      console.log('- Primeros 3 bins:', out.slice(0, 3));
+      console.log('- Rango de conteo:', {
+        min: Math.min(...out.map(b => b.count)),
+        max: Math.max(...out.map(b => b.count))
+      });
+    }
+    
+    return out;
+  };
+
   const niceTicks = (min: number, max: number, count = 6) => {
     const span = max - min;
     if (span <= 0) return [min];
@@ -364,12 +438,12 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     return el;
   };
 
-  const showTip = (ev: any, text: string) => {
+  const showTip = (text: string) => {
     const tooltip = tooltipRef.current;
     if (!tooltip) return;
     tooltip.style.display = 'block';
-    tooltip.style.left = ev.pageX + 12 + 'px';
-    tooltip.style.top = ev.pageY + 12 + 'px';
+    tooltip.style.left = '10px';
+    tooltip.style.top = '10px';
     tooltip.textContent = text;
   };
 
@@ -419,7 +493,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     for (const t of ticks) {
       const x = xScale(t);
       addEl('line', { x1: x, y1: state.padding.top, x2: x, y2: H - state.padding.bottom, stroke: '#444', 'stroke-width': 0.5 }, xg);
-      const lbl = addEl('text', { x: x, y: H - 6, 'text-anchor': 'middle', fill: '#ccc', 'font-size': 10 }, xg);
+      const lbl = addEl('text', { x: x, y: H - 6, 'text-anchor': 'middle', fill: '#ccc', 'font-size': 8 }, xg);
       lbl.textContent = t.toLocaleString();
     }
 
@@ -444,11 +518,11 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       const val = Math.max(cmin, Math.min(cmax, d.value));
       const y = cy + ch - ((val - cmin) / (cmax - cmin)) * ch;
       const rect = addEl('rect', { x: x1, y: Math.min(y, zeroY), width: Math.max(0, x2 - x1), height: Math.abs(zeroY - y), fill: '#4a90e2', opacity: 0.8 });
-      rect.addEventListener('mousemove', (ev) => showTip(ev, `Count\n${d.seqid}:${d.start}-${d.end} = ${d.value}`));
+      rect.addEventListener('mousemove', () => showTip(`Count\n${d.seqid}:${d.start}-${d.end} = ${d.value}`));
       rect.addEventListener('mouseleave', hideTip);
     }
 
-      addEl('text', { x: 6, y: cy + 10, fill: '#fff', 'font-size': 10, 'font-weight': '600' }).textContent = 'Count';    // Density track
+      addEl('text', { x: 6, y: cy + 10, fill: '#fff', 'font-size': 8, 'font-weight': '600' }).textContent = 'Count';    // Density track
     const dt = state.tracks.density;
     const dh = dt.h;
     const dy = dt.y;
@@ -471,12 +545,85 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
         const val = Math.max(dmin, Math.min(dmax, d.density));
         const y = dy + dh - ((val - dmin) / (dmax - dmin)) * dh;
         const rect = addEl('rect', { x: x1, y: Math.min(y, densityZeroY), width: Math.max(0, x2 - x1), height: Math.abs(densityZeroY - y), fill: '#e67e22', opacity: 0.8 });
-        rect.addEventListener('mousemove', (ev) => showTip(ev, `Density\n${d.seqid}:${d.start}-${d.end} = ${d.density?.toFixed(3)}`));
+        rect.addEventListener('mousemove', () => showTip(`Density\n${d.seqid}:${d.start}-${d.end} = ${d.density?.toFixed(3)}`));
         rect.addEventListener('mouseleave', hideTip);
       }
     }
 
-    addEl('text', { x: 6, y: dy + 10, fill: '#fff', 'font-size': 10, 'font-weight': '600' }).textContent = 'Density';
+    addEl('text', { x: 6, y: dy + 10, fill: '#fff', 'font-size': 8, 'font-weight': '600' }).textContent = 'Density';
+
+    // Histogram track
+    const ht = state.tracks.histogram;
+    const hh = ht.h;
+    const hy = ht.y;
+    const histogramData = state.histogram;
+    let hmin = 0, hmax = 1;
+    if (histogramData.length > 0) {
+      // Permitir valores negativos y positivos
+      hmin = Math.min(0, ...histogramData.map(h => h.count));
+      hmax = Math.max(0, ...histogramData.map(h => h.count));
+      if (hmax === hmin) {
+        if (hmax === 0) {
+          hmax = 1;
+          hmin = -1;
+        } else {
+          hmax = hmax + Math.abs(hmax) * 0.1;
+          hmin = hmin - Math.abs(hmin) * 0.1;
+        }
+      }
+    }
+    const histogramZeroY = hy + hh - ((0 - hmin) / (hmax - hmin)) * hh;
+    addEl('line', { x1: state.padding.left, y1: histogramZeroY, x2: W - state.padding.right, y2: histogramZeroY, stroke: '#888', 'stroke-dasharray': '4 2' });
+
+    // Función para obtener color basado en el valor
+    const getHistogramColor = (value: number) => {
+      if (value === 0) return '#666666';
+      const intensity = Math.abs(value) / Math.max(Math.abs(hmax), Math.abs(hmin));
+      if (value > 0) {
+        // Valores positivos: escala de azules a verdes
+        const r = Math.round(50 + intensity * 100);
+        const g = Math.round(100 + intensity * 155);
+        const b = Math.round(200 + intensity * 55);
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        // Valores negativos: escala de rojos a naranjas
+        const r = Math.round(200 + intensity * 55);
+        const g = Math.round(50 + intensity * 100);
+        const b = Math.round(50 + intensity * 50);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    };
+
+    for (const h of histogramData) {
+      const x1 = xScale(Math.max(h.bin_start, state.view.start));
+      const x2 = xScale(Math.min(h.bin_end, state.view.end));
+      
+      // Solo mostrar bins que estén en vista
+      if (x2 <= x1 || h.bin_end < state.view.start || h.bin_start > state.view.end) continue;
+      
+      const val = Math.max(hmin, Math.min(hmax, h.count));
+      const y = hy + hh - ((val - hmin) / (hmax - hmin)) * hh;
+      const rectHeight = Math.abs(histogramZeroY - y);
+      const rectY = Math.min(y, histogramZeroY);
+      
+      const fillColor = getHistogramColor(h.count);
+      const strokeColor = h.count >= 0 ? '#4682b4' : '#cd853f';
+      
+      const rect = addEl('rect', { 
+        x: x1, 
+        y: rectY, 
+        width: Math.max(1, x2 - x1), 
+        height: rectHeight, 
+        fill: fillColor, 
+        opacity: 0.8,
+        stroke: strokeColor,
+        'stroke-width': 0.5
+      });
+      rect.addEventListener('mousemove', () => showTip(`IR Histogram\nBin: ${h.bin_start.toFixed(1)}-${h.bin_end.toFixed(1)}\nCount: ${h.count.toFixed(2)}`));
+      rect.addEventListener('mouseleave', hideTip);
+    }
+
+    addEl('text', { x: 6, y: hy + 10, fill: '#fff', 'font-size': 8, 'font-weight': '600' }).textContent = 'IR Histogram';
 
     // Features track (solo genes)
     const ft = state.tracks.features;
@@ -496,7 +643,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       return lanes.length - 1;
     }
 
-    const laneH = 12, laneGap = 4, maxLanes = Math.floor(fh / (laneH + laneGap));
+    const laneH = 10, laneGap = 2, maxLanes = Math.floor(fh / (laneH + laneGap));
 
     let renderedCount = 0;
     for (const f of feats) {
@@ -508,19 +655,80 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       const y = fy + lane * (laneH + laneGap);
       const strandClass = f.strand === '-' ? '#f39c12' : '#e94e77';
       const rect = addEl('rect', { x: x1, y, width: x2 - x1, height: laneH, fill: strandClass, stroke: '#fff', 'stroke-width': 0.5, opacity: 0.9 });
-      rect.addEventListener('mousemove', (ev) => {
+      rect.addEventListener('mousemove', () => {
         const name = f.attrs.Name || f.attrs.gene || f.attrs.ID || '';
-        showTip(ev, `${f.type} ${name ? '(' + name + ')' : ''}\n${f.seqid}:${f.start}-${f.end} ${f.strand}`);
+        showTip(`${f.type} ${name ? '(' + name + ')' : ''}\n${f.seqid}:${f.start}-${f.end} ${f.strand}`);
       });
       rect.addEventListener('mouseleave', hideTip);
       if (x2 - x1 > 35) {
         const name = f.attrs.Name || f.attrs.gene || f.attrs.ID || f.type;
-        const txt = addEl('text', { x: x1 + 3, y: y + laneH * 0.75, fill: '#ccc', 'font-size': 9 });
+        const txt = addEl('text', { x: x1 + 3, y: y + laneH * 0.75, fill: '#ffffff', 'font-size': 7, 'font-weight': '600' });
         txt.textContent = name;
       }
       renderedCount++;
     }
-    addEl('text', { x: 6, y: fy + 10, fill: '#fff', 'font-size': 10, 'font-weight': '600' }).textContent = 'Genes';
+    addEl('text', { x: 6, y: fy + 10, fill: '#fff', 'font-size': 8, 'font-weight': '600' }).textContent = 'Genes';
+
+    // Add DnaA marker line if gene exists
+    const dnaAGene = state.features.find(f => 
+      (!state.view.seqid || f.seqid === state.view.seqid) &&
+      f.type.toLowerCase() === 'gene' &&
+      (f.attrs.Name?.toLowerCase().includes('dnaa') || 
+       f.attrs.gene?.toLowerCase().includes('dnaa') ||
+       f.attrs.product?.toLowerCase().includes('dnaa'))
+    );
+    
+    if (dnaAGene) {
+      const dnaAX = xScale(dnaAGene.start);
+      // Draw red vertical line across all tracks
+      addEl('line', { 
+        x1: dnaAX, 
+        y1: state.padding.top, 
+        x2: dnaAX, 
+        y2: H - state.padding.bottom, 
+        stroke: '#ff0000', 
+        'stroke-width': 2,
+        'stroke-dasharray': '5,3',
+        opacity: 0.8
+      });
+      
+      // Add label for DnaA marker
+      addEl('text', { 
+        x: dnaAX + 3, 
+        y: state.padding.top + 12, 
+        fill: '#ff0000', 
+        'font-size': 10, 
+        'font-weight': '600' 
+      }).textContent = 'DnaA';
+      
+      // Calculate opposite position for periodic data
+      const genomeSize = state.view.end - state.view.start;
+      const dnaARelativePos = dnaAGene.start - state.view.start;
+      const oppositeRelativePos = (dnaARelativePos + genomeSize / 2) % genomeSize;
+      const oppositePosition = state.view.start + oppositeRelativePos;
+      const oppositeX = xScale(oppositePosition);
+      
+      // Draw blue vertical line for opposite position
+      addEl('line', { 
+        x1: oppositeX, 
+        y1: state.padding.top, 
+        x2: oppositeX, 
+        y2: H - state.padding.bottom, 
+        stroke: '#0066ff', 
+        'stroke-width': 2,
+        'stroke-dasharray': '10,5',
+        opacity: 0.7
+      });
+      
+      // Add label for opposite marker
+      addEl('text', { 
+        x: oppositeX + 3, 
+        y: state.padding.top + 12, 
+        fill: '#0066ff', 
+        'font-size': 10, 
+        'font-weight': '600' 
+      }).textContent = 'Opposite';
+    }
   };
 
   // --- Fit to data ---
@@ -568,8 +776,10 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
         const repliconId = selectedOrganism['ID-replicon'];
         // Corregir aquí: usar repliconId directamente sin "chromosome_" extra
         const csvPath = `${genomePath}/analysis/${repliconId}_ir_region.csv`;
+        const histogramPath = `${genomePath}/analysis/${repliconId}_ir_histogram.csv`;
         
         console.log('Intentando cargar archivo CSV:', csvPath);
+        console.log('Intentando cargar archivo histograma:', histogramPath);
         
         // Cargar el archivo CSV que contiene tanto features como counts
         try {
@@ -586,11 +796,30 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
             
             console.log('Procesado - Features:', feats.length, 'Counts:', counts.length, 'Seqids:', seqids);
             
+            // Cargar histograma
+            let histogram: HistogramBin[] = [];
+            try {
+              const histogramResponse = await fetch(histogramPath);
+              console.log('Respuesta histograma:', histogramResponse.status, histogramResponse.statusText);
+              
+              if (histogramResponse.ok && histogramResponse.status === 200) {
+                const histogramText = await histogramResponse.text();
+                console.log('Texto histograma cargado, longitud:', histogramText.length);
+                histogram = parseHistogramCSV(histogramText);
+                console.log('Histograma procesado - Bins:', histogram.length);
+              } else {
+                console.warn('No se pudo cargar el archivo histograma:', histogramResponse.status);
+              }
+            } catch (histErr) {
+              console.warn('Error cargando archivo histograma:', histErr);
+            }
+            
             setState((s) => {
               const newState = { 
                 ...s, 
                 features: feats,
                 counts,
+                histogram, // Agregar datos del histograma
                 seqids: new Set([...s.seqids, ...seqids]),
                 view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view
               };
@@ -736,13 +965,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
           {/* Nombre del organismo */}
           {selectedOrganism && (
             <div style={{ 
-              fontSize: '0.9rem',
+              fontSize: '0.8rem',
               fontWeight: '600',
               color: '#4fc3f7',
               minWidth: 'fit-content'
             }}>
               <em>{selectedOrganism.genus} {selectedOrganism.species}</em>
-              <span style={{ color: '#999', marginLeft: 6, fontSize: '0.8rem' }}>({selectedOrganism.ID})</span>
+              <span style={{ color: '#999', marginLeft: 6, fontSize: '0.7rem' }}>({selectedOrganism.ID})</span>
             </div>
           )}
           
@@ -751,7 +980,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
             display: 'flex', 
             alignItems: 'center', 
             gap: 8,
-            fontSize: '0.75rem'
+            fontSize: '0.7rem'
           }}>
             <span style={{ color: '#ccc' }}>GFF:</span>
             <input 
@@ -762,13 +991,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
                 setState((s) => ({ ...s, features: feats, seqids: new Set([...s.seqids, ...seqids]) }));
               })}
               style={{
-                padding: '3px 6px',
+                padding: '2px 4px',
                 backgroundColor: '#404040',
                 border: '1px solid #555',
                 borderRadius: '3px',
                 color: '#fff',
-                fontSize: '0.7rem',
-                width: '80px'
+                fontSize: '0.6rem',
+                width: '70px'
               }}
             />
             
@@ -781,13 +1010,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
                 setState((s) => ({ ...s, counts, seqids: new Set([...s.seqids, ...counts.map(c => c.seqid)]) }));
               })}
               style={{
-                padding: '3px 6px',
+                padding: '2px 4px',
                 backgroundColor: '#404040',
                 border: '1px solid #555',
                 borderRadius: '3px',
                 color: '#fff',
-                fontSize: '0.7rem',
-                width: '80px'
+                fontSize: '0.6rem',
+                width: '70px'
               }}
             />
             
@@ -797,13 +1026,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
               type="text"
               placeholder="gene,..."
               style={{
-                padding: '3px 6px',
+                padding: '2px 4px',
                 backgroundColor: '#404040',
                 border: '1px solid #555',
                 borderRadius: '3px',
                 color: '#fff',
-                fontSize: '0.7rem',
-                width: '90px'
+                fontSize: '0.6rem',
+                width: '80px'
               }}
               onChange={() => renderSVG()}
             />
@@ -817,7 +1046,23 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
           style={{ width: '100%', height: '100%', cursor: 'grab' }} 
           onMouseDown={handleMouseDown}
         />
-        <div ref={tooltipRef} style={{ position: 'absolute', display: 'none', backgroundColor: 'rgba(0,0,0,0.7)', color: '#fff', padding: 4, borderRadius: 4, pointerEvents: 'none', fontSize: '0.8rem' }} />
+        <div ref={tooltipRef} style={{ 
+          position: 'absolute', 
+          display: 'none', 
+          left: '10px',
+          top: '10px',
+          backgroundColor: 'rgba(0,0,0,0.85)', 
+          color: '#fff', 
+          padding: '6px 8px', 
+          borderRadius: '4px', 
+          pointerEvents: 'none', 
+          fontSize: '0.7rem',
+          border: '1px solid #444',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          zIndex: 1000,
+          whiteSpace: 'pre-line',
+          minWidth: '120px'
+        }} />
         
         {/* Controles de navegación */}
         <div style={{ 
@@ -826,13 +1071,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
           right: 10, 
           display: 'flex', 
           flexDirection: 'column', 
-          gap: 4,
+          gap: 3,
           backgroundColor: 'rgba(45, 45, 45, 0.9)',
-          padding: '8px',
+          padding: '6px',
           borderRadius: '6px',
           border: '1px solid #555'
         }}>
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 3 }}>
             <button
               onClick={() => setState(s => {
                 const span = s.view.end - s.view.start;
@@ -848,8 +1093,8 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
                 };
               })}
               style={{ 
-                padding: '4px 8px', 
-                fontSize: '12px', 
+                padding: '3px 6px', 
+                fontSize: '10px', 
                 backgroundColor: '#404040', 
                 border: '1px solid #666', 
                 borderRadius: '3px', 
@@ -875,8 +1120,8 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
                 };
               })}
               style={{ 
-                padding: '4px 8px', 
-                fontSize: '12px', 
+                padding: '3px 6px', 
+                fontSize: '10px', 
                 backgroundColor: '#404040', 
                 border: '1px solid #666', 
                 borderRadius: '3px', 
@@ -891,8 +1136,8 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
           <button
             onClick={fitToData}
             style={{ 
-              padding: '4px 8px', 
-              fontSize: '10px', 
+              padding: '3px 6px', 
+              fontSize: '9px', 
               backgroundColor: '#4fc3f7', 
               border: '1px solid #29b6f6', 
               borderRadius: '3px', 
@@ -908,13 +1153,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
         {/* Información de navegación */}
         <div style={{
           position: 'absolute',
-          bottom: 10,
-          left: 10,
+          bottom: 8,
+          left: 8,
           backgroundColor: 'rgba(45, 45, 45, 0.9)',
-          padding: '6px 12px',
-          borderRadius: '4px',
+          padding: '4px 8px',
+          borderRadius: '3px',
           border: '1px solid #555',
-          fontSize: '11px',
+          fontSize: '9px',
           color: '#ccc'
         }}>
           {state.view.seqid}: {state.view.start.toLocaleString()} - {state.view.end.toLocaleString()} 

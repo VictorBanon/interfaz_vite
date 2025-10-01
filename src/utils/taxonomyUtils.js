@@ -87,19 +87,18 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',')
       const targetColumnIndex = columnIndices[taxon]
-      if (values[targetColumnIndex] === taxonValue) {
-        // Extraer todos los valores de la jerarquía para esta fila
+      if (values[targetColumnIndex] && values[targetColumnIndex].trim() === taxonValue) {
         hierarchyValues = {}
-        relevantHierarchy.forEach(col => {
-          const colIndex = columnIndices[col]
-          hierarchyValues[col] = values[colIndex]
+        relevantHierarchy.forEach(level => {
+          const levelIndex = columnIndices[level]
+          hierarchyValues[level] = values[levelIndex].trim()
         })
         break
       }
     }
     
     if (!hierarchyValues) {
-      throw new Error(`No se encontró el valor ${taxonValue} en la columna ${taxon}`)
+      throw new Error(`No se encontró jerarquía para ${taxon}: ${taxonValue}`)
     }
     
     // Construir la ruta de la carpeta jerárquica
@@ -110,11 +109,11 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
     if (aggregate === 'PC') {
       fileName = `PC${pcX}_hc_${part}_${taxonValue}.csv`
     } else if (aggregate === 'acp') {
+      // Para archivos ACP, usar el formato con acp
       fileName = `acp_hc_${part}_${taxonValue}.csv`
-    } else if (aggregate === 'min_max' || aggregate === 'mean' || aggregate === 'median') {
-      fileName = `hc_${taxonValue}_${part}_${aggregate}.csv`
     } else {
-      fileName = `${aggregate}_hc_${part}_${taxonValue}.csv`
+      // Para otros tipos de aggregate, usar estructura diferente si es necesario
+      fileName = `acp_hc_${part}_${taxonValue}.csv`
     }
     
     // Ruta completa
@@ -125,7 +124,11 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
   } catch (error) {
     console.error('Error construyendo ruta ACP:', error)
     // Ruta por defecto en caso de error
-    return `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`
+    if (aggregate === 'PC') {
+      return `/data/philogenie/Bacteria/PC${pcX}_hc_${part}_Bacteria.csv`
+    } else {
+      return `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`
+    }
   }
 }
 
@@ -150,21 +153,175 @@ export const getTaxonomyHierarchy = async (taxon, taxonValue) => {
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',')
       const targetColumnIndex = columnIndices[taxon]
-      if (values[targetColumnIndex] === taxonValue) {
-        // Construir objeto con toda la jerarquía
+      if (values[targetColumnIndex] && values[targetColumnIndex].trim() === taxonValue) {
         const hierarchy = {}
-        hierarchyOrder.forEach(col => {
-          const colIndex = columnIndices[col]
-          if (colIndex !== -1 && values[colIndex]) {
-            hierarchy[col] = values[colIndex]
+        hierarchyOrder.forEach(level => {
+          const levelIndex = columnIndices[level]
+          if (levelIndex !== -1 && values[levelIndex]) {
+            hierarchy[level] = values[levelIndex].trim()
           }
         })
         return hierarchy
       }
     }
+    
     return null
   } catch (error) {
     console.error('Error obteniendo jerarquía:', error)
     return null
   }
+}
+
+// Función para construir la ruta jerárquica del archivo explained variance
+export const buildExplainedVarianceFilePath = async (taxon, taxonValue, part, analysisType = "hc") => {
+  try {
+    // Cargar los datos de taxonomía si no se han proporcionado
+    const taxonomyData = await readTaxonomyData()
+    
+    // Definir el orden jerárquico de las columnas taxonómicas
+    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    
+    // Encontrar el índice del taxón seleccionado
+    const taxonIndex = hierarchyOrder.indexOf(taxon)
+    if (taxonIndex === -1) {
+      throw new Error(`Taxón no válido: ${taxon}`)
+    }
+    
+    // Obtener la jerarquía hasta el taxón seleccionado
+    const relevantHierarchy = hierarchyOrder.slice(0, taxonIndex + 1)
+    
+    // Buscar la fila que contiene el valor del taxón seleccionado
+    const response = await fetch('/data/taxonomy.csv')
+    const text = await response.text()
+    const lines = text.trim().split('\n')
+    const headers = lines[0].split(',')
+    
+    // Encontrar los índices de las columnas relevantes
+    const columnIndices = {}
+    relevantHierarchy.forEach(col => {
+      columnIndices[col] = headers.indexOf(col)
+    })
+    
+    // Buscar la fila que coincide con el taxonValue
+    let hierarchyValues = null
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',')
+      const targetColumnIndex = columnIndices[taxon]
+      if (values[targetColumnIndex] && values[targetColumnIndex].trim() === taxonValue) {
+        hierarchyValues = {}
+        relevantHierarchy.forEach(level => {
+          const levelIndex = columnIndices[level]
+          hierarchyValues[level] = values[levelIndex].trim()
+        })
+        break
+      }
+    }
+    
+    if (!hierarchyValues) {
+      throw new Error(`No se encontró jerarquía para ${taxon}: ${taxonValue}`)
+    }
+    
+    // Construir la ruta de la carpeta jerárquica
+    const folderPath = relevantHierarchy.map(level => hierarchyValues[level]).join('/')
+    
+    // Construir el nombre del archivo
+    const fileName = `explained_variance_ratio_${analysisType}_${part}_${taxonValue}.csv`
+    
+    // Ruta completa
+    const fullPath = `/data/philogenie/${folderPath}/${fileName}`
+    
+    return fullPath
+    
+  } catch (error) {
+    console.error('Error construyendo ruta explained variance:', error)
+    // Ruta por defecto en caso de error
+    return `/data/philogenie/Bacteria/explained_variance_ratio_${analysisType}_${part}_Bacteria.csv`
+  }
+}
+
+// Función para leer y procesar el archivo explained_variance_ratio.csv
+export const readExplainedVarianceData = async (taxon = "superkingdom", taxonValue = "Bacteria", part = "all", analysisType = "hc") => {
+  try {
+    // Intentar primero con el tipo de análisis especificado
+    let filePath = await buildExplainedVarianceFilePath(taxon, taxonValue, part, analysisType)
+    let response = await fetch(filePath)
+    
+    // Si es kmer y no se encuentra, intentar con hc como fallback
+    if (!response.ok && analysisType === "kmer") {
+      console.log(`Archivo kmer no encontrado, intentando con hc: ${filePath}`)
+      filePath = await buildExplainedVarianceFilePath(taxon, taxonValue, part, "hc")
+      response = await fetch(filePath)
+    }
+    
+    if (!response.ok) {
+      console.error(`No se pudo cargar el archivo: ${filePath}`)
+      return {}
+    }
+    
+    const text = await response.text()
+    
+    // Parsear CSV
+    const lines = text.trim().split('\n')
+    if (lines.length < 2) {
+      console.error('Archivo CSV vacío o sin datos')
+      return {}
+    }
+    
+    const headers = lines[0].split(',')
+    
+    // Verificar que las columnas necesarias existen
+    const requiredColumns = ['PC', 'explained_variance_ratio', 'cumulative_explained_variance']
+    const hasAllColumns = requiredColumns.every(col => headers.includes(col))
+    
+    if (!hasAllColumns) {
+      console.error('El archivo CSV no tiene las columnas requeridas:', headers)
+      return {}
+    }
+    
+    // Procesar los datos
+    const explainedVarianceData = {}
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',')
+      if (values.length >= 3) {
+        const pc = values[0].trim()
+        const explainedVarianceRatio = parseFloat(values[1])
+        const cumulativeExplainedVariance = parseFloat(values[2])
+        
+        explainedVarianceData[pc] = {
+          explainedVarianceRatio,
+          cumulativeExplainedVariance
+        }
+      }
+    }
+    
+    return explainedVarianceData
+  } catch (error) {
+    console.error('Error reading explained variance data:', error)
+    return {}
+  }
+}
+
+// Función para obtener el explained variance ratio de un PC específico
+export const getExplainedVarianceRatio = (explainedVarianceData, pcNumber) => {
+  if (!explainedVarianceData) {
+    return '?'
+  }
+  const pcKey = `PC${pcNumber}`
+  if (explainedVarianceData[pcKey]) {
+    return (explainedVarianceData[pcKey].explainedVarianceRatio * 100).toFixed(2)
+  }
+  return '?'
+}
+
+// Función para obtener el explained variance ratio acumulativo de un PC específico
+export const getCumulativeExplainedVariance = (explainedVarianceData, pcNumber) => {
+  if (!explainedVarianceData) {
+    return '?'
+  }
+  const pcKey = `PC${pcNumber}`
+  if (explainedVarianceData[pcKey]) {
+    return (explainedVarianceData[pcKey].cumulativeExplainedVariance * 100).toFixed(2)
+  }
+  return '?'
 }
