@@ -469,6 +469,13 @@ const Sidebar = ({
         </li>
 
         <li>
+          <Link to="/motif">Motif Search</Link>
+          {location.pathname === '/motif' && (
+            <p className="test-text">✅ Test: You are on Motif Search</p>
+          )}
+        </li>
+
+        <li>
           <Link to="/compositional">Compositional</Link>
           {location.pathname === '/compositional' && (
             <div className="manager">

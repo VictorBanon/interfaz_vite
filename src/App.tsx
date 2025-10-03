@@ -5,7 +5,8 @@ import Kmer from './pages/kmer/Kmer'
 import Introduction from './pages/introduction/Introduction' 
 import Taxonomy from './pages/taxonomy/Taxonomy' 
 import Spatial from './pages/spatial/Spatial' 
-import Compositional from './pages/compositional/Compositional' 
+import Compositional from './pages/compositional/Compositional'
+import Motif from './pages/motif/Motif' 
 
 const App = () => {
   return (
@@ -18,6 +19,7 @@ const App = () => {
         <Route path="/kmer" element={<Kmer />} />
         <Route path="/spatial" element={<Spatial />} />
         <Route path="/compositional" element={<Compositional />} />
+        <Route path="/motif" element={<Motif />} />
       </Routes> 
     </Router>
   )
