@@ -702,32 +702,43 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       }).textContent = 'DnaA';
       
       // Calculate opposite position for periodic data
-      const genomeSize = state.view.end - state.view.start;
-      const dnaARelativePos = dnaAGene.start - state.view.start;
-      const oppositeRelativePos = (dnaARelativePos + genomeSize / 2) % genomeSize;
-      const oppositePosition = state.view.start + oppositeRelativePos;
-      const oppositeX = xScale(oppositePosition);
+      // Get the actual genome size from all features for this seqid
+      const seqidFeatures = state.features.filter(f => f.seqid === dnaAGene.seqid);
+      let genomeSize = 0;
+      if (seqidFeatures.length > 0) {
+        genomeSize = Math.max(...seqidFeatures.map(f => f.end));
+      }
       
-      // Draw blue vertical line for opposite position
-      addEl('line', { 
-        x1: oppositeX, 
-        y1: state.padding.top, 
-        x2: oppositeX, 
-        y2: H - state.padding.bottom, 
-        stroke: '#0066ff', 
-        'stroke-width': 2,
-        'stroke-dasharray': '10,5',
-        opacity: 0.7
-      });
-      
-      // Add label for opposite marker
-      addEl('text', { 
-        x: oppositeX + 3, 
-        y: state.padding.top + 12, 
-        fill: '#0066ff', 
-        'font-size': 10, 
-        'font-weight': '600' 
-      }).textContent = 'Opposite';
+      // If we can't determine genome size from features, skip opposite marker
+      if (genomeSize > 0) {
+        const oppositePosition = dnaAGene.start + genomeSize / 2;
+        // If the opposite position is beyond genome size, wrap it around
+        const wrappedOppositePosition = oppositePosition > genomeSize ? 
+          oppositePosition - genomeSize : oppositePosition;
+        
+        const oppositeX = xScale(wrappedOppositePosition);
+        
+        // Draw blue vertical line for opposite position
+        addEl('line', { 
+          x1: oppositeX, 
+          y1: state.padding.top, 
+          x2: oppositeX, 
+          y2: H - state.padding.bottom, 
+          stroke: '#0066ff', 
+          'stroke-width': 2,
+          'stroke-dasharray': '10,5',
+          opacity: 0.7
+        });
+        
+        // Add label for opposite marker
+        addEl('text', { 
+          x: oppositeX + 3, 
+          y: state.padding.top + 12, 
+          fill: '#0066ff', 
+          'font-size': 10, 
+          'font-weight': '600' 
+        }).textContent = 'Opposite';
+      }
     }
   };
 

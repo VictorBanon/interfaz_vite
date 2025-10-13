@@ -17,7 +17,7 @@ const Motif = () => {
 
   const handleIRRowClick = (irRow) => {
     console.log('IR seleccionado:', irRow);
-    setSelectedIRRow(irRow);
+    setSelectedIRRow(irRow); // irRow puede ser null para deseleccionar
   };
   
   return (

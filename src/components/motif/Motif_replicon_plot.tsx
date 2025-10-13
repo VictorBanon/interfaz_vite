@@ -28,6 +28,7 @@ interface View {
 }
 
 interface Tracks {
+  sequence: { y: number; h: number };
   features: { y: number; h: number };
 }
 
@@ -41,6 +42,8 @@ interface State {
   padding: { left: number; right: number; top: number; bottom: number };
   tracks: Tracks;
   irPositions: number[];
+  fastaSequence: string;
+  repliconName: string;
 }
 
 interface MotifRepliconPlotProps {
@@ -55,12 +58,15 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     seqids: new Set(),
     view: { seqid: null, start: 1, end: 1e4 },
     pxWidth: 1000,
-    pxHeight: 200, // Reduced height since we only have features track
+    pxHeight: 250, // Increased height to accommodate sequence track
     padding: { left: 50, right: 15, top: 15, bottom: 20 },
     tracks: { 
-      features: { y: 30, h: 120 } // Only features track
+      sequence: { y: 30, h: 40 },
+      features: { y: 80, h: 120 } // Moved down to make room for sequence
     },
     irPositions: [],
+    fastaSequence: '',
+    repliconName: '',
   });
 
   const gffInputRef = useRef<HTMLInputElement>(null);
@@ -230,6 +236,41 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     return { feats, seqids: Array.from(seqids) };
   };
 
+  const parseFASTA = (text: string, targetRepliconName: string) => {
+    const lines = text.trim().split('\n');
+    let currentSequence = '';
+    let currentHeader = '';
+    let inTargetSequence = false;
+
+    // Extract the replicon type from the target name (e.g., "chromosome" from "chromosome_GCF_...")
+    const repliconType = targetRepliconName.split('_')[0]; // Gets "chromosome", "plasmid", etc.
+    console.log('Looking for replicon type:', repliconType, 'from target:', targetRepliconName);
+
+    for (const line of lines) {
+      if (line.startsWith('>')) {
+        // If we were reading the target sequence, we found it
+        if (inTargetSequence) {
+          break;
+        }
+        
+        // Check if this header contains the target replicon type
+        currentHeader = line.substring(1).trim().toLowerCase();
+        inTargetSequence = currentHeader.includes(repliconType.toLowerCase());
+        
+        console.log('Checking header:', line.substring(0, 50) + '...');
+        console.log('Contains', repliconType + '?', inTargetSequence);
+        
+        currentSequence = '';
+      } else if (inTargetSequence) {
+        // Accumulate sequence lines
+        currentSequence += line.trim();
+      }
+    }
+
+    console.log('Final sequence length:', currentSequence.length);
+    return inTargetSequence ? currentSequence : '';
+  };
+
   const niceTicks = (min: number, max: number, count = 6) => {
     const span = max - min;
     if (span <= 0) return [min];
@@ -325,6 +366,101 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
       lbl.textContent = t.toLocaleString();
     }
 
+    // Sequence track
+    const st = state.tracks.sequence;
+    const sy = st.y;
+    const sh = st.h;
+    
+    console.log('Rendering sequence track:');
+    console.log('- fastaSequence length:', state.fastaSequence.length);
+    console.log('- repliconName:', state.repliconName);
+    console.log('- view:', state.view);
+    
+    if (state.fastaSequence && state.fastaSequence.length > 0) {
+      const sequenceLength = state.fastaSequence.length;
+      const visibleStart = Math.max(0, state.view.start - 1); // Convert to 0-based
+      const visibleEnd = Math.min(sequenceLength, state.view.end);
+      const visibleSequence = state.fastaSequence.substring(visibleStart, visibleEnd);
+      
+      console.log('- visibleStart:', visibleStart, 'visibleEnd:', visibleEnd);
+      console.log('- visibleSequence length:', visibleSequence.length);
+      console.log('- visibleSequence sample:', visibleSequence.substring(0, 20));
+      
+      // Only show sequence if zoom level allows readable text
+      const viewWidth = state.view.end - state.view.start;
+      const baseWidth = (state.pxWidth - state.padding.left - state.padding.right) / viewWidth;
+      
+      console.log('- viewWidth:', viewWidth, 'baseWidth:', baseWidth);
+      
+      if (baseWidth >= 4) { // Reduced threshold to show nucleotides earlier
+        console.log('Rendering individual nucleotides...');
+        for (let i = 0; i < visibleSequence.length; i++) {
+          const bp = visibleStart + i + 1; // Convert back to 1-based
+          const x = xScale(bp);
+          const nucleotide = visibleSequence[i].toUpperCase();
+          
+          // Color code nucleotides
+          let color = '#ffffff';
+          switch (nucleotide) {
+            case 'A': color = '#ff6b6b'; break;
+            case 'T': color = '#4ecdc4'; break;
+            case 'G': color = '#45b7d1'; break;
+            case 'C': color = '#96ceb4'; break;
+            default: color = '#gray'; break;
+          }
+          
+          // Draw nucleotide background
+          addEl('rect', {
+            x: x - baseWidth/2,
+            y: sy,
+            width: baseWidth,
+            height: sh,
+            fill: color,
+            opacity: 0.3,
+            stroke: '#333',
+            'stroke-width': 0.2
+          });
+          
+          // Draw nucleotide letter
+          if (baseWidth >= 6) { // Reduced threshold to show letters earlier
+            const txt = addEl('text', {
+              x: x,
+              y: sy + sh/2 + 3,
+              'text-anchor': 'middle',
+              fill: color,
+              'font-size': Math.min(10, baseWidth - 2),
+              'font-weight': '600'
+            });
+            txt.textContent = nucleotide;
+          }
+        }
+      } else {
+        // Show sequence as a continuous bar when zoomed out
+        console.log('Showing sequence as continuous bar...');
+        const seqStart = xScale(state.view.start);
+        const seqEnd = xScale(Math.min(state.view.end, sequenceLength));
+        addEl('rect', {
+          x: seqStart,
+          y: sy,
+          width: seqEnd - seqStart,
+          height: sh,
+          fill: '#4a90e2',
+          opacity: 0.5,
+          stroke: '#4a90e2',
+          'stroke-width': 1
+        });
+      }
+      
+      // Add sequence track label
+      addEl('text', { x: 6, y: sy + 12, fill: '#fff', 'font-size': 8, 'font-weight': '600' }).textContent = 
+        `Sequence (${state.fastaSequence.length} bp)`;
+    } else {
+      console.log('No FASTA sequence available');
+      // Add placeholder text
+      addEl('text', { x: 6, y: sy + 12, fill: '#666', 'font-size': 8, 'font-weight': '600' }).textContent = 
+        'No sequence loaded';
+    }
+
     // Features track (solo genes)
     const ft = state.tracks.features;
     const fy = ft.y;
@@ -401,33 +537,39 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
         'font-weight': '600' 
       }).textContent = 'DnaA';
       
-      // Calculate opposite position for periodic data
-      const genomeSize = state.view.end - state.view.start;
-      const dnaARelativePos = dnaAGene.start - state.view.start;
-      const oppositeRelativePos = (dnaARelativePos + genomeSize / 2) % genomeSize;
-      const oppositePosition = state.view.start + oppositeRelativePos;
-      const oppositeX = xScale(oppositePosition);
+      // Calculate opposite position for periodic data using FASTA sequence length
+      const genomeSize = state.fastaSequence.length || 0;
       
-      // Draw blue vertical line for opposite position
-      addEl('line', { 
-        x1: oppositeX, 
-        y1: state.padding.top, 
-        x2: oppositeX, 
-        y2: H - state.padding.bottom, 
-        stroke: '#0066ff', 
-        'stroke-width': 2,
-        'stroke-dasharray': '10,5',
-        opacity: 0.7
-      });
-      
-      // Add label for opposite marker
-      addEl('text', { 
-        x: oppositeX + 3, 
-        y: state.padding.top + 12, 
-        fill: '#0066ff', 
-        'font-size': 10, 
-        'font-weight': '600' 
-      }).textContent = 'Opposite';
+      if (genomeSize > 0) {
+        // Calculate absolute opposite position (180 degrees around the circular genome)
+        const oppositePosition = dnaAGene.start + genomeSize / 2;
+        // If the opposite position exceeds genome length, wrap it around
+        const wrappedOppositePosition = oppositePosition > genomeSize ? 
+          oppositePosition - genomeSize : oppositePosition;
+        
+        const oppositeX = xScale(wrappedOppositePosition);
+        
+        // Draw blue vertical line for opposite position
+        addEl('line', { 
+          x1: oppositeX, 
+          y1: state.padding.top, 
+          x2: oppositeX, 
+          y2: H - state.padding.bottom, 
+          stroke: '#0066ff', 
+          'stroke-width': 2,
+          'stroke-dasharray': '10,5',
+          opacity: 0.7
+        });
+        
+        // Add label for opposite marker
+        addEl('text', { 
+          x: oppositeX + 3, 
+          y: state.padding.top + 12, 
+          fill: '#0066ff', 
+          'font-size': 10, 
+          'font-weight': '600' 
+        }).textContent = 'Opposite';
+      }
     }
 
     // Render IR position markers
@@ -531,7 +673,8 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
                 ...s, 
                 features: feats,
                 seqids: new Set([...s.seqids, ...seqids]),
-                view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view
+                view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view,
+                repliconName: repliconId
               };
               
               // Auto-fit to data
@@ -551,6 +694,33 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
               
               return newState;
             });
+            
+            // Load FASTA file after CSV is loaded successfully
+            const fastaPath = `${genomePath}/preprocessing/${selectedOrganism.ID}_genomic.fna`;
+            console.log('Intentando cargar archivo FASTA:', fastaPath);
+            
+            try {
+              const fastaResponse = await fetch(fastaPath);
+              console.log('Respuesta FASTA:', fastaResponse.status, fastaResponse.statusText);
+              
+              if (fastaResponse.ok && fastaResponse.status === 200) {
+                const fastaText = await fastaResponse.text();
+                console.log('Texto FASTA cargado, longitud:', fastaText.length);
+                
+                // Parse FASTA to get sequence for this replicon
+                const sequence = parseFASTA(fastaText, repliconId);
+                console.log('Secuencia encontrada para', repliconId, '- longitud:', sequence.length);
+                
+                setState((s) => ({
+                  ...s,
+                  fastaSequence: sequence
+                }));
+              } else {
+                console.error('No se pudo cargar el archivo FASTA:', fastaResponse.status);
+              }
+            } catch (fastaErr) {
+              console.error('Error cargando archivo FASTA:', fastaErr);
+            }
           } else {
             console.error('No se pudo cargar el archivo CSV:', csvResponse.status);
           }

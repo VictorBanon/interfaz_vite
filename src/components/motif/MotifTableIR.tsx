@@ -10,7 +10,7 @@ interface IRData {
 
 interface MotifTableIRProps {
   selectedOrganism: any | null
-  onRowClick?: (row: IRData) => void
+  onRowClick?: (row: IRData | null) => void
 }
 
 const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClick }) => {
@@ -21,6 +21,7 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
   const [generalFilter, setGeneralFilter] = useState<string>('')
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [rowsPerPage, setRowsPerPage] = useState<number>(10)
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
 
   // Efecto para calcular el número de filas automáticamente
   useEffect(() => {
@@ -49,6 +50,7 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
   useEffect(() => {
     if (!selectedOrganism) {
       setData([])
+      setSelectedRowIndex(null) // Reset selection when organism changes
       return
     }
 
@@ -90,6 +92,7 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
             
             setData(processedData)
             setCurrentPage(1)
+            setSelectedRowIndex(null) // Reset selection when new data loads
             setLoading(false)
           },
           error: (err: any) => {
@@ -128,6 +131,20 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
   }
+
+  const handleRowClick = (row: IRData, rowIndex: number) => {
+    const globalRowIndex = (currentPage - 1) * rowsPerPage + rowIndex;
+    
+    if (selectedRowIndex === globalRowIndex) {
+      // Si es la misma fila, toggle (deseleccionar)
+      setSelectedRowIndex(null);
+      onRowClick && onRowClick(null); // Pasar null para limpiar marcadores
+    } else {
+      // Seleccionar nueva fila
+      setSelectedRowIndex(globalRowIndex);
+      onRowClick && onRowClick(row);
+    }
+  };
 
   // Función para generar botones de paginación limitados
   const getPaginationButtons = () => {
@@ -242,20 +259,29 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
                 </tr>
               </thead>
               <tbody>
-                {currentData.map((row, index) => (
-                  <tr 
-                    key={index}
-                    onClick={() => onRowClick && onRowClick(row)}
-                    style={{ cursor: onRowClick ? 'pointer' : 'default' }}
-                  >
-                    <td title={row.motif_complete}>
-                      {truncateText(row.motif_complete)}
-                    </td>
-                    <td title={row.count.toString()}>
-                      {truncateText(row.count.toString())}
-                    </td>
-                  </tr>
-                ))}
+                {currentData.map((row, index) => {
+                  const globalRowIndex = (currentPage - 1) * rowsPerPage + index;
+                  const isSelected = selectedRowIndex === globalRowIndex;
+                  
+                  return (
+                    <tr 
+                      key={index}
+                      onClick={() => handleRowClick(row, index)}
+                      style={{ 
+                        cursor: onRowClick ? 'pointer' : 'default',
+                        backgroundColor: isSelected ? '#e3f2fd' : 'transparent',
+                        borderLeft: isSelected ? '4px solid #2196f3' : '4px solid transparent'
+                      }}
+                    >
+                      <td title={row.motif_complete}>
+                        {truncateText(row.motif_complete)}
+                      </td>
+                      <td title={row.count.toString()}>
+                        {truncateText(row.count.toString())}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
