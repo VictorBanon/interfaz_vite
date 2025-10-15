@@ -14,6 +14,7 @@ const Kmer = () => {
   const [part, setPart] = useState("all")
   const [pcConfig, setPcConfig] = useState({ x: 1, y: 2 })
   const [aggregate, setAggregate] = useState("PC")
+  const [groupBy, setGroupBy] = useState("superkingdom") // Estado para agrupar por
   
   // Estados para taxonomía
   const [taxon, setTaxon] = useState("superkingdom")
@@ -58,6 +59,12 @@ const Kmer = () => {
     setTaxonValue(newTaxonValue)
   }
 
+  // Manejador para groupBy
+  const handleGroupByChange = (newGroupBy) => {
+    console.log('Group By changed to:', newGroupBy)
+    setGroupBy(newGroupBy)
+  }
+
   return (
     <div className="dashboard">
       <Sidebar 
@@ -66,9 +73,11 @@ const Kmer = () => {
         onAggregateChange={handleAggregateChange}
         onTaxonChange={handleTaxonChange}
         onTaxonValueChange={handleTaxonValueChange}
+        onGroupByChange={handleGroupByChange}
         aggregate={aggregate}
         taxon={taxon}
         taxonValue={taxonValue}
+        groupBy={groupBy}
       />
       <main className="main-content">
         <div className="grid">
@@ -82,6 +91,7 @@ const Kmer = () => {
               taxon={taxon}
               taxonValue={taxonValue}
               part={part}
+              groupBy={groupBy}
             />
 
           </div>

@@ -3,7 +3,7 @@ import Plot from "react-plotly.js"
 import Papa from "papaparse"
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
 
-const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part }) => {
+const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "superkingdom" }) => {
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
 
@@ -57,35 +57,103 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part }) => {
 
   if (data.length === 0) return <p>Loading...</p>
 
-  // Group rows by color
-  const colorGroups = {}
-  data.forEach((row) => {
-    const color = row.color || "Unknown"
-    if (!colorGroups[color]) colorGroups[color] = []
-    colorGroups[color].push(row)
-  })
+  // Create traces based on groupBy type
+  let traces
+  if (groupBy === 'size' || groupBy === 'GC') {
+    // For continuous variables, use numeric color scale with colorbar
+    // Filter out rows with non-numeric values
+    const validData = data.filter(row => {
+      const value = parseFloat(row[groupBy])
+      return !isNaN(value) && value !== null && value !== undefined
+    })
+    
+    const numericValues = validData.map(row => parseFloat(row[groupBy]))
+    
+    traces = [{
+      x: validData.map(row => row[`PC${pcX}`] || 0),
+      y: validData.map(row => row[`PC${pcY}`] || 0),
+      text: validData.map(row => row.id || ""),
+      customdata: validData,
+      hovertemplate: 
+        '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
+        '<b>ID:</b> %{customdata.ID}<br>' +
+        '<b>PC' + pcX + ':</b> %{x:.3f}<br>' +
+        '<b>PC' + pcY + ':</b> %{y:.3f}<br>' +
+        '<b>name:</b> %{customdata.fullname}<br>' +
+        '<b>' + groupBy + ':</b> %{customdata.' + groupBy + '}<br>' +
+        '<extra></extra>',
+      mode: 'markers',
+      type: 'scatter',
+      marker: {
+        size: 6,
+        color: numericValues,
+        colorscale: groupBy === 'GC' ? 'RdYlBu_r' : (
+          groupBy === 'size' ? [
+            [0, 'lightblue'],      // Azul claro
+            [0.2, 'skyblue'],      // Azul cielo
+            [0.4, 'steelblue'],    // Azul acero
+            [0.6, 'brown'],        // Marrón
+            [0.8, 'saddlebrown'],  // Marrón silla
+            [1, 'darkbrown']       // Marrón oscuro
+          ] : 'Plasma'
+        ),
+        // Set fixed color range for GC (0-1) for better visualization
+        ...(groupBy === 'GC' && {
+          cmin: 0,
+          cmax: 1
+        }),
+        colorbar: {
+          title: {
+            text: groupBy === 'GC' ? 'GC Content' : (groupBy === 'size' ? 'Size (bp)' : groupBy),
+            side: 'right'
+          },
+          thickness: 15,
+          len: 0.7,
+          x: 1.02,
+          tickfont: { size: 10 },
+          // Set fixed range for GC to 0-1 for better color distribution
+          ...(groupBy === 'GC' && {
+            tick0: 0,
+            dtick: 0.1,
+            tickmode: 'linear'
+          })
+        },
+        showscale: true
+      },
+      name: groupBy + ' (scale)',
+      showlegend: false
+    }]
+  } else {
+    // For categorical variables, group by the selected field
+    const groups = {}
+    data.forEach((row) => {
+      const groupValue = row[groupBy] || "Unknown"
+      if (!groups[groupValue]) groups[groupValue] = []
+      groups[groupValue].push(row)
+    })
 
-  // Create one trace per color
-  const traces = Object.entries(colorGroups).map(([color, points]) => ({
-    x: points.map(row => row[`PC${pcX}`] || 0),
-    y: points.map(row => row[`PC${pcY}`] || 0),
-    text: points.map(row => row.id || ""),
-    customdata: points,
-    hovertemplate: 
-      '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
-      '<b>ID:</b> %{customdata.ID}<br>' +
-      '<b>PC' + pcX + ':</b> %{x:.3f}<br>' +
-      '<b>PC' + pcY + ':</b> %{y:.3f}<br>' +
-      '<b>name:</b> %{customdata.fullname} <br>' +
-      '<extra></extra>',
-    mode: 'markers',
-    type: 'scatter',
-    marker: {
-      size: 6,
-      color: color,
-    },
-    name: color
-  }))
+    // Create one trace per group
+    traces = Object.entries(groups).map(([groupValue, points]) => ({
+      x: points.map(row => row[`PC${pcX}`] || 0),
+      y: points.map(row => row[`PC${pcY}`] || 0),
+      text: points.map(row => row.id || ""),
+      customdata: points,
+      hovertemplate: 
+        '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
+        '<b>ID:</b> %{customdata.ID}<br>' +
+        '<b>PC' + pcX + ':</b> %{x:.3f}<br>' +
+        '<b>PC' + pcY + ':</b> %{y:.3f}<br>' +
+        '<b>name:</b> %{customdata.fullname} <br>' +
+        '<extra></extra>',
+      mode: 'markers',
+      type: 'scatter',
+      marker: {
+        size: 6,
+        color: groupValue,
+      },
+      name: groupValue
+    }))
+  }
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -105,7 +173,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part }) => {
           },
           hovermode: "closest",
           autosize: true,
-          margin: { l: 20, r: 60, t: 20, b: 20 },
+          margin: { l: 20, r: 100, t: 20, b: 20 }, // Increased right margin for colorbar
           height: null,
           width: null,
           showlegend: true // Forzar mostrar leyenda siempre

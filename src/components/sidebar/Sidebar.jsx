@@ -17,11 +17,13 @@ const Sidebar = ({
   onTaxonValueChange,
   onMaxPCChange,
   onSelectedPCsChange,
+  onGroupByChange,
   aggregate,
   taxon: initialTaxon,
   taxonValue: initialTaxonValue,
   maxPC: initialMaxPC,
-  selectedPCs: initialSelectedPCs
+  selectedPCs: initialSelectedPCs,
+  groupBy: initialGroupBy
 }) => {
   const location = useLocation()
 
@@ -30,6 +32,7 @@ const Sidebar = ({
   const [taxon_value, setTaxon_value] = useState(initialTaxonValue || "Bacteria")
   const [part, setPart] = useState("all")
   const [aggregateState, setAggregateState] = useState(aggregate || "PC")
+  const [groupBy, setGroupBy] = useState(initialGroupBy || "superkingdom")
   // Reemplazar pcNumber por pcX y pcY
   const [pcX, setPcX] = useState(1)
   const [pcY, setPcY] = useState(1)
@@ -135,8 +138,10 @@ const Sidebar = ({
   }
 
   const handlePartChange = (newpart) => {
-    if (newpart) setPart(newpart) 
-      onPartChange?.(newpart || part)
+    if (newpart) {
+      setPart(newpart)
+      onPartChange?.(newpart)
+    }
   }
 
   const [isPCListOpen, setIsPCListOpen] = useState(false)
@@ -159,6 +164,11 @@ const Sidebar = ({
       onSelectedPCsChange?.(newSelected)
       return newSelected
     })
+  }
+
+  const handleGroupByChange = (newGroupBy) => {
+    setGroupBy(newGroupBy)
+    onGroupByChange?.(newGroupBy)
   }
 
   return (
@@ -211,12 +221,28 @@ const Sidebar = ({
               </label>
 
               <label>
+                Group By:
+                <select value={groupBy} onChange={e => handleGroupByChange(e.target.value)}>
+                  <option value="superkingdom">Superkingdom</option>
+                  <option value="class">Class</option>
+                  <option value="order">Order</option>
+                  <option value="family">Family</option>
+                  <option value="genus">Genus</option>
+                  <option value="species">Species</option>
+                  <option value="Replicons_type">Replicons Type</option>
+                  <option value="GC">GC</option>
+                  <option value="size">Size</option>
+                </select>
+              </label>
+
+              <label>
                 Aggregate:
                 <select value={aggregateState} onChange={e => handleAggregateChange(e.target.value)}>
                   <option value="PC">PC</option>
                   <option value="Min-Max">Min-Max</option>
                   <option value="Mean-Median">Mean-Median</option>
                   <option value="ACPvsAll">ACPvsAll</option>
+                  <option value="PCA_Taxon">PCA Taxon</option>
                  </select>
               </label>
 

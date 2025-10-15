@@ -20,6 +20,7 @@ const Structural = () => {
   const [aggregate, setAggregate] = useState("PC") // Añadir estado para aggregate
   const [maxPC, setMaxPC] = useState(6) // Nuevo estado para número máximo de PCs
   const [selectedPCs, setSelectedPCs] = useState([1, 2, 3, 4, 5, 6]) // Estado para PCs seleccionados
+  const [groupBy, setGroupBy] = useState("superkingdom") // Estado para agrupar por
   const [isCard2Expanded, setIsCard2Expanded] = useState(false) // Estado para expansión de card 2
   const [activeTab, setActiveTab] = useState("gap/arm") // Estado para la pestaña activa en card 3
   
@@ -80,6 +81,12 @@ const Structural = () => {
     setSelectedPCs(newSelectedPCs)
   }
 
+  // Nuevo manejador para groupBy
+  const handleGroupByChange = (newGroupBy) => {
+    console.log('Group By changed to:', newGroupBy)
+    setGroupBy(newGroupBy)
+  }
+
   // Función para alternar la expansión de la card 2
   const toggleCard2Expansion = () => {
     setIsCard2Expanded(prev => !prev)
@@ -100,11 +107,13 @@ const Structural = () => {
         onTaxonValueChange={handleTaxonValueChange}
         onMaxPCChange={handleMaxPCChange}
         onSelectedPCsChange={handleSelectedPCsChange}
+        onGroupByChange={handleGroupByChange}
         aggregate={aggregate}
         taxon={taxon}
         taxonValue={taxonValue}
         maxPC={maxPC}
         selectedPCs={selectedPCs}
+        groupBy={groupBy}
       />
       <main className="main-content">
         {isCard2Expanded ? (
@@ -145,6 +154,7 @@ const Structural = () => {
                 taxon={taxon}
                 taxonValue={taxonValue}
                 part={part}
+                groupBy={groupBy}
               />
             </div> 
             <div className="card">

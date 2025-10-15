@@ -1,7 +1,19 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
 import Papa from 'papaparse'
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
+
+// Declare Plotly for TypeScript
+declare global {
+  interface Window {
+    Plotly: {
+      relayout: (div: any, update: any) => Promise<any>;
+      Plots: {
+        resize: (div: any) => void;
+      };
+    };
+  }
+}
  
 
 interface AggregateProps {
@@ -28,8 +40,17 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   selectedPCs = [1, 2, 3, 4, 5, 6]
 }) => { 
 
-  const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any; acpData?: any }>({ pcX: [], pcY: [] })
+  const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any; acpData?: any; pcaTaxonData?: any }>({ pcX: [], pcY: [] })
   const [loading, setLoading] = useState(false)
+  const [currentYRange, setCurrentYRange] = useState<[number, number]>([-0.5, 12.5]) // Shared Y range state
+
+  // Update Y range when PCA_Taxon data changes
+  useEffect(() => {
+    if (aggregate === "PCA_Taxon" && csvData.pcaTaxonData?.data) {
+      const dataLength = csvData.pcaTaxonData.data.length
+      setCurrentYRange([-0.5, dataLength - 0.5])
+    }
+  }, [aggregate, csvData.pcaTaxonData?.data?.length])
 
   useEffect(() => {
     const fetchCsvData = async (filePath: string): Promise<any> => {
@@ -285,6 +306,46 @@ const AggregateStructural: React.FC<AggregateProps> = ({
       })
     }
 
+    const fetchPCATaxonData = async (filePath: string): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        Papa.parse(filePath, {
+          download: true,
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: (result: any) => {
+            const data = result.data as any[]
+            
+            // Filter out any completely empty rows
+            const filteredData = data.filter((row: any) => {
+              return Object.values(row).some(val => val !== null && val !== undefined && val !== '')
+            })
+            
+            // Extract PC columns and taxonomic data
+            const pcColumns = Object.keys(filteredData[0] || {}).filter(key => key.startsWith('PC'))
+            const taxonomicColumns = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+            
+            // Build taxonomic tree structure
+            const taxonomicTree: any = {}
+            filteredData.forEach((row: any) => {
+              let current = taxonomicTree
+              taxonomicColumns.forEach((level) => {
+                const value = row[level] || 'Unknown'
+                if (!current[value]) {
+                  current[value] = { children: {}, data: [] }
+                }
+                current[value].data.push(row)
+                current = current[value].children
+              })
+            })
+            
+            resolve({ data: filteredData, pcColumns, taxonomicTree, taxonomicColumns })
+          },
+          error: (error: any) => reject(error)
+        })
+      })
+    }
+
     const loadCsvData = async () => {
       try {
         setLoading(true)
@@ -385,6 +446,41 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               acpData: acpData,
               minMaxData: undefined,
               meanMedianData: undefined 
+            })
+          }
+        } else if (aggregate === "PCA_Taxon") {
+          try {
+            // Para PCA_Taxon - cargar archivo con patrón acp_hc_{part}_{taxon_value}.csv
+            if (taxonValue && part) {
+              const pcaTaxonPath = `/data/philogenie/Bacteria/acp_hc_${part}_${taxonValue}.csv`
+              console.log('Loading PCA_Taxon data from:', pcaTaxonPath)
+              
+              const pcaTaxonData = await fetchPCATaxonData(pcaTaxonPath)
+              setCsvData({ 
+                pcX: [], 
+                pcY: [],
+                pcaTaxonData: pcaTaxonData,
+                minMaxData: undefined,
+                meanMedianData: undefined,
+                acpData: undefined
+              })
+            } else {
+              throw new Error('Missing required parameters for PCA_Taxon')
+            }
+          } catch (error) {
+            // Fallback path if specific file doesn't exist
+            console.log('PCA_Taxon path failed, using fallback:', error)
+            const fallbackPath = `/data/philogenie/Bacteria/acp_hc_all_Bacteria.csv`
+            console.log('Loading PCA_Taxon data from fallback:', fallbackPath)
+            
+            const pcaTaxonData = await fetchPCATaxonData(fallbackPath)
+            setCsvData({ 
+              pcX: [], 
+              pcY: [],
+              pcaTaxonData: pcaTaxonData,
+              minMaxData: undefined,
+              meanMedianData: undefined,
+              acpData: undefined
             })
           }
         } else {
@@ -953,6 +1049,346 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               responsive: true,
               displayModeBar: true,
               displaylogo: false
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Para PCA_Taxon
+  if (aggregate === "PCA_Taxon") {
+    const pcaTaxonData = csvData.pcaTaxonData
+    
+    if (!pcaTaxonData) {
+      return <div>Cargando datos PCA_Taxon...</div>
+    }
+
+    const { data, pcColumns } = pcaTaxonData
+    
+    if (!data || data.length === 0) {
+      return <div>No hay datos PCA_Taxon disponibles</div>
+    }
+
+    // Create heatmap data from PC columns
+    const heatmapData = data.map((row: any) => {
+      return pcColumns.map((pc: string) => row[pc] || 0)
+    })
+
+    // Create labels for samples
+    const sampleLabels = data.map((row: any, index: number) => 
+      `${row.fullname || row.ID || `Sample ${index + 1}`}`
+    )
+
+    // Create taxonomic tree visualization data aligned with heatmap rows
+    const taxonomicColumns = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    
+    // Build hierarchical tree structure with positions
+    const buildTreeStructure = () => {
+      const treeNodes: any[] = []
+      const treeEdges: any[] = []
+      const nodePositions: {[key: string]: {x: number, y: number}} = {}
+      let nodeId = 0
+      
+      // Track unique paths and their sample indices
+      const pathToSamples: {[key: string]: number[]} = {}
+      
+      data.forEach((row: any, sampleIndex: number) => {
+        let currentPath = ''
+        taxonomicColumns.forEach((column, level) => {
+          const value = row[column] || 'Unknown'
+          const previousPath = currentPath
+          currentPath = currentPath ? `${currentPath}>${value}` : value
+          
+          if (!pathToSamples[currentPath]) {
+            pathToSamples[currentPath] = []
+          }
+          pathToSamples[currentPath].push(sampleIndex)
+          
+          // Create node if it doesn't exist
+          const nodeKey = currentPath
+          if (!nodePositions[nodeKey]) {
+            nodePositions[nodeKey] = {
+              x: level,
+              y: 0 // Will be calculated later
+            }
+            
+            treeNodes.push({
+              id: nodeId++,
+              path: currentPath,
+              name: value,
+              level: level,
+              fullPath: currentPath,
+              samples: []
+            })
+          }
+          
+          // Create edge to parent
+          if (previousPath && !treeEdges.find(e => e.source === previousPath && e.target === currentPath)) {
+            treeEdges.push({
+              source: previousPath,
+              target: currentPath
+            })
+          }
+        })
+      })
+      
+      // Calculate Y positions based on sample alignment
+      Object.keys(pathToSamples).forEach(path => {
+        const samples = pathToSamples[path]
+        const avgY = samples.reduce((sum, idx) => sum + idx, 0) / samples.length
+        nodePositions[path].y = avgY
+        
+        // Update node with sample info
+        const node = treeNodes.find(n => n.path === path)
+        if (node) {
+          node.samples = samples
+          node.y = avgY
+        }
+      })
+      
+      return { treeNodes, treeEdges, nodePositions }
+    }
+    
+    const { treeNodes, treeEdges } = buildTreeStructure()
+    
+    // Create traces for tree visualization
+    const createTreeTraces = () => {
+      const traces: any[] = []
+      
+      // Create orthogonal edges (perpendicular lines connecting nodes)
+      const edgeX: number[] = []
+      const edgeY: number[] = []
+      
+      treeEdges.forEach(edge => {
+        const sourceNode = treeNodes.find(n => n.path === edge.source)
+        const targetNode = treeNodes.find(n => n.path === edge.target)
+        
+        if (sourceNode && targetNode) {
+          // Create L-shaped orthogonal connection
+          // Horizontal line from source
+          edgeX.push(sourceNode.level, targetNode.level - 0.1, NaN)
+          edgeY.push(sourceNode.y, sourceNode.y, NaN)
+          
+          // Vertical line down to target level  
+          edgeX.push(targetNode.level - 0.1, targetNode.level - 0.1, NaN)
+          edgeY.push(sourceNode.y, targetNode.y, NaN)
+          
+          // Short horizontal line to target
+          edgeX.push(targetNode.level - 0.1, targetNode.level, NaN)
+          edgeY.push(targetNode.y, targetNode.y, NaN)
+        }
+      })
+      
+      // Add edge trace
+      traces.push({
+        x: edgeX,
+        y: edgeY,
+        mode: 'lines',
+        type: 'scatter',
+        line: {
+          color: '#666666',
+          width: 1.5
+        },
+        hoverinfo: 'none',
+        showlegend: false
+      })
+      
+      // Add vertical lines at species level to show which rows belong to same species
+      const speciesLevel = taxonomicColumns.length - 1 // Last level (species)
+      
+      const verticalLinesX: number[] = []
+      const verticalLinesY: number[] = []
+      
+      // Group samples by species to create vertical lines
+      const speciesByName: {[key: string]: number[]} = {}
+      data.forEach((row: any, index: number) => {
+        const speciesName = row.species || 'Unknown'
+        if (!speciesByName[speciesName]) {
+          speciesByName[speciesName] = []
+        }
+        speciesByName[speciesName].push(index)
+      })
+      
+      // Create vertical lines for each species
+      Object.values(speciesByName).forEach(indices => {
+        if (indices.length > 1) { // Only draw line if species has multiple samples
+          const minY = Math.min(...indices)
+          const maxY = Math.max(...indices)
+          
+          // Draw vertical line covering all samples of this species
+          verticalLinesX.push(speciesLevel + 0.1, speciesLevel + 0.1, NaN)
+          verticalLinesY.push(minY - 0.3, maxY + 0.3, NaN)
+        }
+      })
+      
+      // Add vertical species lines trace
+      traces.push({
+        x: verticalLinesX,
+        y: verticalLinesY,
+        mode: 'lines',
+        type: 'scatter',
+        line: {
+          color: '#ff6b6b',
+          width: 2
+        },
+        hoverinfo: 'none',
+        showlegend: false
+      })
+      
+      // Create node traces grouped by level
+      taxonomicColumns.forEach((column, level) => {
+        const levelNodes = treeNodes.filter(n => n.level === level)
+        
+        if (levelNodes.length > 0) {
+          traces.push({
+            x: levelNodes.map(n => n.level),
+            y: levelNodes.map(n => n.y),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+              size: levelNodes.map(n => Math.min(20, Math.max(8, n.samples.length * 2))),
+              color: `hsl(${(level * 50) % 360}, 70%, 50%)`,
+              symbol: 'circle',
+              line: {
+                color: '#000000',
+                width: 1
+              }
+            },
+            hovertemplate: 
+              `<b>${column}:</b> %{customdata}<br>` +
+              '<b>Samples:</b> ' + levelNodes.map(n => n.samples.length).join(', ') + '<br>' +
+              '<b>Avg Position:</b> %{y:.1f}<br>' +
+              '<extra></extra>',
+            customdata: levelNodes.map(n => n.name),
+            name: column,
+            showlegend: false
+          })
+        }
+      })
+      
+      return traces
+    }
+    
+    const taxonomicTraces = createTreeTraces()
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'row', gap: '0px', height: '100%', alignItems: 'stretch' }}>
+        <div style={{ flex: 2, display: 'flex', alignItems: 'stretch' }}>
+          <Plot
+            data={taxonomicTraces}
+            layout={{
+              title: '',
+              autosize: true,
+              margin: { l: 120, r: 10, t: 20, b: 100 },
+              paper_bgcolor: 'rgba(0,0,0,0)', // Transparent background
+              plot_bgcolor: 'rgba(0,0,0,0)', // Transparent plot area
+              xaxis: {
+                title: 'Taxonomic Level',
+                titlefont: { size: 10 },
+                tickfont: { size: 8 },
+                tickmode: 'array',
+                tickvals: taxonomicColumns.map((_: string, i: number) => i),
+                ticktext: taxonomicColumns.map((col: string) => col.charAt(0).toUpperCase() + col.slice(1)),
+                range: [-0.5, taxonomicColumns.length - 0.3], // Extended range to show vertical lines
+                showgrid: false, // Remove grid
+                zeroline: false, // Remove zero line
+                showline: false, // Remove axis line
+                linecolor: 'rgba(0,0,0,0)'
+              },
+              yaxis: {
+                title: '',
+                titlefont: { size: 10 },
+                tickfont: { size: 8 },
+                range: currentYRange, // Use shared state
+                autorange: false, // Explicitly disable autorange
+                showgrid: false, // Remove grid
+                zeroline: false, // Remove zero line
+                showline: false, // Remove axis line
+                showticklabels: false, // Hide y-axis labels for alignment
+                linecolor: 'rgba(0,0,0,0)'
+              },
+              hoverlabel: {
+                bgcolor: 'white',
+                font: { size: 10 }
+              },
+              showlegend: false
+            }}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+            config={{ 
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false,
+              scrollZoom: true,
+              doubleClick: 'reset+autosize'
+            }}
+            onRelayout={(eventData: any) => {
+              // Update shared Y range state when tree plot changes
+              if (eventData['yaxis.range[0]'] !== undefined && eventData['yaxis.range[1]'] !== undefined) {
+                setCurrentYRange([eventData['yaxis.range[0]'], eventData['yaxis.range[1]']])
+              }
+            }}
+          />
+        </div>
+        <div style={{ flex: 3 }}>
+          <Plot
+            data={[{
+              z: heatmapData,
+              x: pcColumns,
+              y: sampleLabels.map((_: any, i: number) => i), // Use indices explicitly
+              type: 'heatmap',
+              colorscale: 'RdYlBu_r',
+              showscale: true,
+              hoverongaps: false,
+              hovertemplate: 
+                '<b>Sample:</b> ' + '%{text}' + '<br>' +
+                '<b>PC:</b> %{x}<br>' +
+                '<b>Value:</b> %{z:.3f}<br>' +
+                '<extra></extra>',
+              text: sampleLabels.map((label: string) => 
+                Array(pcColumns.length).fill(label)
+              ) // Create 2D array matching heatmap structure
+            }]}
+            layout={{
+              title: '',
+              autosize: true,
+              margin: { l: 10, r: 50, t: 20, b: 100 },
+              xaxis: {
+                title: 'Principal Components',
+                titlefont: { size: 12 },
+                tickfont: { size: 10 },
+                side: 'bottom'
+              },
+              yaxis: {
+                title: '',
+                titlefont: { size: 12 },
+                tickfont: { size: 8 },
+                tickmode: 'array',
+                tickvals: sampleLabels.map((_: any, i: number) => i),
+                ticktext: sampleLabels.map(() => ''), // Hide tick labels
+                range: currentYRange, // Use shared state
+                autorange: false // Explicitly disable autorange
+              },
+              hoverlabel: {
+                bgcolor: 'white',
+                font: { size: 10 }
+              }
+            }}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+            config={{ 
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false,
+              scrollZoom: true,
+              doubleClick: 'reset+autosize'
+            }}
+            onRelayout={(eventData: any) => {
+              // Update shared Y range state when heatmap plot changes
+              if (eventData['yaxis.range[0]'] !== undefined && eventData['yaxis.range[1]'] !== undefined) {
+                setCurrentYRange([eventData['yaxis.range[0]'], eventData['yaxis.range[1]']])
+              }
             }}
           />
         </div>
