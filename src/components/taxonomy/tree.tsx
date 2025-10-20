@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, MouseEvent } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Papa from 'papaparse'
 import './tree.css'
 
@@ -143,10 +143,11 @@ const TaxonomicTree: React.FC<TaxonomicTreeProps> = ({ onNodeSelect }) => {
   }
 
   // Manejador para el zoom con la rueda del ratón
-  const handleWheel = (e: WheelEvent) => {
-    if (e.ctrlKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const handleWheel = (e: Event) => {
+    const wheelEvent = e as WheelEvent;
+    if (wheelEvent.ctrlKey) {
+      wheelEvent.preventDefault();
+      const delta = wheelEvent.deltaY > 0 ? 0.9 : 1.1;
       setScale(prevScale => {
         const newScale = prevScale * delta;
         // Limitar el zoom entre 0.5 y 3

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import Plot from 'react-plotly.js'
 import Papa from 'papaparse'
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
@@ -27,6 +27,7 @@ interface AggregateProps {
   part?: string
   maxPC?: number
   selectedPCs?: number[]
+  groupBy?: string
 }
 
 const AggregateStructural: React.FC<AggregateProps> = ({ 
@@ -36,13 +37,32 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   taxon,
   taxonValue, 
   part,
-  maxPC = 6,
-  selectedPCs = [1, 2, 3, 4, 5, 6]
+  selectedPCs = [1, 2, 3, 4, 5, 6],
+  groupBy = "family"
 }) => { 
 
   const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any; acpData?: any; pcaTaxonData?: any }>({ pcX: [], pcY: [] })
   const [loading, setLoading] = useState(false)
   const [currentYRange, setCurrentYRange] = useState<[number, number]>([-0.5, 12.5]) // Shared Y range state
+
+  // Helper function to build mean/median file paths using hierarchical structure
+  const buildMeanMedianPath = async (taxon: string, taxonValue: string, part: string, type: string): Promise<string> => {
+    try {
+      // Si tenemos jerarquía taxonómica, intentar usar la estructura jerárquica
+      if (taxon && taxonValue && taxon !== 'superkingdom') {
+        // Usar buildACPFilePath como base pero modificar el nombre del archivo
+        const acpPath = await buildACPFilePath(taxon, taxonValue, part, 'hc', 1, 2)
+        const basePath = acpPath.substring(0, acpPath.lastIndexOf('/'))
+        return `${basePath}/hc_${taxonValue}_${part}_${type}.csv`
+      } else {
+        // Para superkingdom o casos simples, usar estructura directa
+        return `/data/philogenie/Bacteria/hc_${taxonValue || 'Bacteria'}_${part || 'all'}_${type}.csv`
+      }
+    } catch (error) {
+      console.error('Error building hierarchical path, using fallback:', error)
+      return `/data/philogenie/Bacteria/hc_${taxonValue || 'Bacteria'}_${part || 'all'}_${type}.csv`
+    }
+  }
 
   // Update Y range when PCA_Taxon data changes
   useEffect(() => {
@@ -291,15 +311,8 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             const data = result.data as any[]
             console.log('ACP Data parsed:', data)
             
-            // Group rows by color for ACP visualization
-            const colorGroups: { [key: string]: any[] } = {}
-            data.forEach((row: any) => {
-              const color = row.color || "Unknown"
-              if (!colorGroups[color]) colorGroups[color] = []
-              colorGroups[color].push(row)
-            })
-            
-            resolve({ data, colorGroups })
+            // Return raw data without grouping - grouping will be done at render time
+            resolve({ data })
           },
           error: (error: any) => reject(error)
         })
@@ -385,35 +398,22 @@ const AggregateStructural: React.FC<AggregateProps> = ({
           }
         } else if (aggregate === "Mean-Median") {
           try {
-            // Validar parámetros antes de construir rutas dinámicas
-            if (taxon && taxonValue && part) {
-              const dynamicMeanPath = await buildACPFilePath(taxon, taxonValue, part, 'mean', pcX, pcY)
-              const dynamicMedianPath = await buildACPFilePath(taxon, taxonValue, part, 'median', pcX, pcY)
-              console.log('Dynamic Mean-Median paths:', { dynamicMeanPath, dynamicMedianPath })
-              const meanMedianData = await fetchMeanMedianData(dynamicMeanPath, dynamicMedianPath)
-              console.log('Mean-Median data loaded from dynamic paths:', meanMedianData)
-              setCsvData({ 
-                pcX: [], 
-                pcY: [], 
-                meanMedianData: meanMedianData,
-                minMaxData: undefined
-              })
-            } else {
-              throw new Error('Missing required parameters for dynamic path')
-            }
-          } catch (error) {
-            // Fallback a rutas estáticas
-            console.log('Dynamic paths failed, using fallback for Mean-Median:', error)
-            const fallbackMeanPath = `/data/philogenie/Bacteria/hc_Bacteria_${part || 'all'}_mean.csv`
-            const fallbackMedianPath = `/data/philogenie/Bacteria/hc_Bacteria_${part || 'all'}_median.csv`
-            console.log('Loading Mean-Median from fallback:', { fallbackMeanPath, fallbackMedianPath })
-            const meanMedianData = await fetchMeanMedianData(fallbackMeanPath, fallbackMedianPath)
+            // Construir rutas para archivos mean y median con la estructura jerárquica correcta
+            const meanPath = await buildMeanMedianPath(taxon || 'superkingdom', taxonValue || 'Bacteria', part || 'all', 'mean')
+            const medianPath = await buildMeanMedianPath(taxon || 'superkingdom', taxonValue || 'Bacteria', part || 'all', 'median')
+            
+            console.log('Loading Mean-Median from paths:', { meanPath, medianPath })
+            const meanMedianData = await fetchMeanMedianData(meanPath, medianPath)
+            console.log('Mean-Median data loaded successfully:', meanMedianData)
             setCsvData({ 
               pcX: [], 
               pcY: [], 
               meanMedianData: meanMedianData,
               minMaxData: undefined
             })
+          } catch (error) {
+            console.error('Error loading Mean-Median data:', error)
+            setCsvData({ pcX: [], pcY: [] })
           }
         } else if (aggregate === "ACPvsAll") {
           try {
@@ -450,9 +450,9 @@ const AggregateStructural: React.FC<AggregateProps> = ({
           }
         } else if (aggregate === "PCA_Taxon") {
           try {
-            // Para PCA_Taxon - cargar archivo con patrón acp_hc_{part}_{taxon_value}.csv
-            if (taxonValue && part) {
-              const pcaTaxonPath = `/data/philogenie/Bacteria/acp_hc_${part}_${taxonValue}.csv`
+            // Para PCA_Taxon - usar buildACPFilePath para construir la ruta correcta
+            if (taxonValue && part && taxon) {
+              const pcaTaxonPath = await buildACPFilePath(taxon, taxonValue, part, 'acp', pcX, pcY)
               console.log('Loading PCA_Taxon data from:', pcaTaxonPath)
               
               const pcaTaxonData = await fetchPCATaxonData(pcaTaxonPath)
@@ -532,7 +532,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     }
 
     loadCsvData()
-  }, [aggregate, pcX, pcY, taxon, taxonValue, part, selectedPCs])
+  }, [aggregate, pcX, pcY, taxon, taxonValue, part, selectedPCs, groupBy])
 
   console.log('CSV Data:', csvData)
   console.log('Current aggregate type:', aggregate)
@@ -584,18 +584,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmax: 1,
             }]}
             layout={{
-              title: `PC${pcX} Distribution`,
+              title: { text: `PC${pcX} Distribution` },
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
               xaxis: {
-                title: 'Size',
-                titlefont: { size: 10 },
+                title: { text: 'Size' },
                 tickfont: { size: 8 },
                 side: 'bottom'
               },
               yaxis: {
-                title: 'Position',
-                titlefont: { size: 10 },
+                title: { text: 'Position' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -631,18 +629,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmax: 1, 
             }]}
             layout={{
-              title: `PC${pcY} Distribution`, // Cambiar de pcX a pcY
+              title: { text: `PC${pcY} Distribution` },
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
               xaxis: {
-                title: 'Size',
-                titlefont: { size: 10 },
+                title: { text: 'Size' },
                 tickfont: { size: 8 },
                 side: 'bottom'
               },
               yaxis: {
-                title: 'Position',
-                titlefont: { size: 10 },
+                title: { text: 'Position' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -690,18 +686,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmax: 1,
             }]}
             layout={{
-              title: 'Minimum Distribution',
+              title: { text: 'Minimum Distribution' },
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
               xaxis: {
-                title: 'Arm Length',
-                titlefont: { size: 10 },
+                title: { text: 'Arm Length' },
                 tickfont: { size: 8 },
                 side: 'bottom'
               },
               yaxis: {
-                title: 'Gap Size',
-                titlefont: { size: 10 },
+                title: { text: 'Gap Size' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -736,18 +730,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmax: 1,
             }]}
             layout={{
-              title: 'Maximum Distribution',
+              title: { text: 'Maximum Distribution' },
               autosize: true,
               margin: { l: 50, r: 50, t: 30, b: 30 },
               xaxis: {
-                title: 'Arm Length',
-                titlefont: { size: 10 },
+                title: { text: 'Arm Length' },
                 tickfont: { size: 8 },
                 side: 'bottom'
               },
               yaxis: {
-                title: 'Gap Size',
-                titlefont: { size: 10 },
+                title: { text: 'Gap Size' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -796,8 +788,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmin: -1,
               zmax: 2,
               colorbar: {
-                title: 'log10(value)',
-                titlefont: { size: 10 },
+                title: { text: 'log10(value)' },
                 tickfont: { size: 8 },
                 len: 0.9,
                 tickvals: [-1, 0, 1, 2],
@@ -805,18 +796,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               }
             }]}
             layout={{
-              title: 'Mean Distribution',
+              title: { text: 'Mean Distribution' },
               autosize: true,
               margin: { l: 50, r: 80, t: 30, b: 50 },
               xaxis: {
-                title: 'Size',
-                titlefont: { size: 10 },
+                title: { text: 'Size' },
                 tickfont: { size: 8 },
                 side: 'bottom'
               },
               yaxis: {
-                title: 'Position',
-                titlefont: { size: 10 },
+                title: { text: 'Position' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -852,8 +841,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               zmin: -1,
               zmax: 2,
               colorbar: {
-                title: 'log10(value)',
-                titlefont: { size: 10 },
+                title: { text: 'log10(value)' },
                 tickfont: { size: 8 },
                 len: 0.9,
                 tickvals: [-1, 0, 1, 2],
@@ -861,18 +849,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               }
             }]}
             layout={{
-              title: 'Median Distribution',
+              title: { text: 'Median Distribution' },
               autosize: true,
               margin: { l: 50, r: 80, t: 30, b: 50 },
               xaxis: {
-                title: 'Size',
-                titlefont: { size: 10 },
+                title: { text: 'Size' },
                 tickfont: { size: 8 },
                 side: 'bottom'
               },
               yaxis: {
-                title: 'Position',
-                titlefont: { size: 10 },
+                title: { text: 'Position' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -916,27 +902,48 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     }
 
     console.log('PCs disponibles:', availablePCs)
+    console.log('GroupBy value:', groupBy)
     
-    // Definir colores fijos para cada grupo
-    const colorGroups = Object.keys(acpData.colorGroups)
+    // Determinar si groupBy es una variable numérica (GC, size) o categórica
+    const isNumericGroupBy = groupBy === 'GC' || groupBy === 'size'
+    
+    let colorGroups: { [key: string]: any[] } = {}
+    let numericData: any[] = []
+    
+    if (isNumericGroupBy) {
+      // Para variables numéricas, filtrar datos válidos y preparar valores numéricos
+      numericData = acpData.data.filter((row: any) => {
+        const value = parseFloat(row[groupBy])
+        return !isNaN(value) && value !== null && value !== undefined
+      })
+      console.log('Numeric data filtered:', numericData.length, 'rows for', groupBy)
+    } else {
+      // Para variables categóricas, hacer agrupación
+      acpData.data.forEach((row: any) => {
+        const groupByValue = row[groupBy] || "Unknown"
+        if (!colorGroups[groupByValue]) colorGroups[groupByValue] = []
+        colorGroups[groupByValue].push(row)
+      })
+      console.log('Categorical groups:', Object.keys(colorGroups))
+    }
+    
+    // Definir colores para grupos categóricos
     const fixedColors = [
-      '#1f77b4', // azul
-      '#ff7f0e', // naranja
-      '#2ca02c', // verde
-      '#d62728', // rojo
-      '#9467bd', // púrpura
-      '#8c564b', // marrón
-      '#e377c2', // rosa
-      '#7f7f7f', // gris
-      '#bcbd22', // oliva
-      '#17becf'  // cian
+      '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+      '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
+      '#dbdb8d', '#9edae5', '#ff8c00', '#32cd32', '#ba55d3'
     ]
     
-    // Crear mapeo de colores fijo
-    const colorMapping: { [key: string]: string } = {}
-    colorGroups.forEach((group, index) => {
-      colorMapping[group] = fixedColors[index % fixedColors.length]
-    })
+    let colorMapping: { [key: string]: string } = {}
+    
+    if (!isNumericGroupBy) {
+      // Solo crear mapeo para variables categóricas
+      const sortedGroups = Object.keys(colorGroups).sort()
+      sortedGroups.forEach((group: string, index: number) => {
+        colorMapping[group] = fixedColors[index % fixedColors.length]
+      })
+    }
     
     // Crear todas las trazas para cada combinación de PCs
     const allTraces: any[] = []
@@ -944,32 +951,87 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     // Crear cada subplot individualmente
     availablePCs.forEach((pcY, rowIndex) => {
       availablePCs.forEach((pcX, colIndex) => {
-        // Crear trazas para cada color en este subplot
-        Object.entries(acpData.colorGroups).forEach(([color, points]) => {
-          const pointsArray = points as any[]
-          const subplotIndex = rowIndex * numPCs + colIndex + 1
-          
+        const subplotIndex = rowIndex * numPCs + colIndex + 1
+        
+        if (isNumericGroupBy) {
+          // Para variables numéricas (GC, size), crear una sola traza con escala de colores continua
           allTraces.push({
-            x: pointsArray.map(row => row[`PC${pcX}`] || 0),
-            y: pointsArray.map(row => row[`PC${pcY}`] || 0),
-            text: pointsArray.map(row => 
-              `ID: ${row.id || ""}<br>PC${pcX}: ${(row[`PC${pcX}`] || 0).toFixed(3)}<br>PC${pcY}: ${(row[`PC${pcY}`] || 0).toFixed(3)}`
+            x: numericData.map(row => row[`PC${pcX}`] || 0),
+            y: numericData.map(row => row[`PC${pcY}`] || 0),
+            text: numericData.map(row => 
+              `${row.fullname || row.ID || "Unknown"}<br>` +
+              `PC${pcX}: ${(row[`PC${pcX}`] || 0).toFixed(3)}<br>` +
+              `PC${pcY}: ${(row[`PC${pcY}`] || 0).toFixed(3)}<br>` +
+              `${groupBy}: ${row[groupBy] || "Unknown"}`
             ),
             mode: 'markers',
             type: 'scatter',
             marker: {
               size: 6,
-              color: colorMapping[color], // Usar color fijo
+              color: numericData.map(row => parseFloat(row[groupBy])),
+              colorscale: groupBy === 'GC' ? 'RdYlBu_r' : (
+                groupBy === 'size' ? [
+                  [0, 'lightblue'], [0.2, 'skyblue'], [0.4, 'steelblue'],
+                  [0.6, 'brown'], [0.8, 'saddlebrown'], [1, 'darkbrown']
+                ] : 'Plasma'
+              ),
+              ...(groupBy === 'GC' && { cmin: 0, cmax: 1 }),
+              colorbar: {
+                title: {
+                  text: groupBy === 'GC' ? 'GC Content' : (groupBy === 'size' ? 'Size (bp)' : groupBy),
+                  side: 'right'
+                },
+                thickness: 15,
+                len: 0.7,
+                x: 1.02,
+                tickfont: { size: 10 },
+                ...(groupBy === 'GC' && {
+                  tick0: 0,
+                  dtick: 0.1,
+                  tickmode: 'linear'
+                })
+              },
+              showscale: rowIndex === 0 && colIndex === 0, // Solo mostrar colorbar en el primer subplot
               opacity: 0.7
             },
-            name: `${color}`,
-            legendgroup: color,
-            showlegend: rowIndex === 0 && colIndex === 0, // Solo mostrar leyenda en el primer subplot
+            name: `${groupBy} (scale)`,
+            showlegend: false,
             xaxis: `x${subplotIndex}`,
             yaxis: `y${subplotIndex}`,
             hoverinfo: 'text'
           })
-        })
+        } else {
+          // Para variables categóricas, crear trazas separadas por grupo
+          Object.entries(colorGroups).forEach(([groupName, points]) => {
+            const pointsArray = points as any[]
+            
+            allTraces.push({
+              x: pointsArray.map(row => row[`PC${pcX}`] || 0),
+              y: pointsArray.map(row => row[`PC${pcY}`] || 0),
+              text: pointsArray.map(row => 
+                `${row.fullname || row.ID || "Unknown"}<br>` +
+                `PC${pcX}: ${(row[`PC${pcX}`] || 0).toFixed(3)}<br>` +
+                `PC${pcY}: ${(row[`PC${pcY}`] || 0).toFixed(3)}<br>` +
+                `${groupBy}: ${row[groupBy] || "Unknown"}<br>` +
+                `${groupBy !== "genus" ? `Genus: ${row.genus || "Unknown"}<br>` : ""}` +
+                `${groupBy !== "species" ? `Species: ${row.species || "Unknown"}` : ""}`
+              ),
+              mode: 'markers',
+              type: 'scatter',
+              marker: {
+                size: 6,
+                color: colorMapping[groupName],
+                opacity: 0.7
+              },
+              name: `${groupName}`,
+              legendgroup: groupName,
+              showlegend: rowIndex === 0 && colIndex === 0, // Solo mostrar leyenda en el primer subplot
+              xaxis: `x${subplotIndex}`,
+              yaxis: `y${subplotIndex}`,
+              hoverinfo: 'text'
+            })
+          })
+        }
       })
     })
 
@@ -1278,14 +1340,13 @@ const AggregateStructural: React.FC<AggregateProps> = ({
           <Plot
             data={taxonomicTraces}
             layout={{
-              title: '',
+              title: { text: '' },
               autosize: true,
               margin: { l: 120, r: 10, t: 20, b: 100 },
               paper_bgcolor: 'rgba(0,0,0,0)', // Transparent background
               plot_bgcolor: 'rgba(0,0,0,0)', // Transparent plot area
               xaxis: {
-                title: 'Taxonomic Level',
-                titlefont: { size: 10 },
+                title: { text: 'Taxonomic Level' },
                 tickfont: { size: 8 },
                 tickmode: 'array',
                 tickvals: taxonomicColumns.map((_: string, i: number) => i),
@@ -1297,8 +1358,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 linecolor: 'rgba(0,0,0,0)'
               },
               yaxis: {
-                title: '',
-                titlefont: { size: 10 },
+                title: { text: '' },
                 tickfont: { size: 8 },
                 range: currentYRange, // Use shared state
                 autorange: false, // Explicitly disable autorange
@@ -1351,18 +1411,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               ) // Create 2D array matching heatmap structure
             }]}
             layout={{
-              title: '',
+              title: { text: '' },
               autosize: true,
               margin: { l: 10, r: 50, t: 20, b: 100 },
               xaxis: {
-                title: 'Principal Components',
-                titlefont: { size: 12 },
+                title: { text: 'Principal Components' },
                 tickfont: { size: 10 },
                 side: 'bottom'
               },
               yaxis: {
-                title: '',
-                titlefont: { size: 12 },
+                title: { text: '' },
                 tickfont: { size: 8 },
                 tickmode: 'array',
                 tickvals: sampleLabels.map((_: any, i: number) => i),

@@ -81,8 +81,8 @@ const AggregateKmer: React.FC<AggregateProps> = ({
         // Si tenemos parámetros taxonómicos, usar rutas dinámicas
         if (taxon && taxonValue && part) {
           // Construir rutas independientemente para cada PC
-          pcXPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX)
-          pcYPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcY)
+          pcXPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
+          pcYPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcY, pcX)
             
           console.log('Loading PC data from:', { pcXPath, pcYPath })
           // TODO(Victor): Esto esta hardcodeado, tendria que haber una manera mas simple
@@ -231,23 +231,21 @@ const AggregateKmer: React.FC<AggregateProps> = ({
           <Plot
             data={pcXTraces}
             layout={{
-              title: `PC${pcX} K-mer Distribution`,
+              title: { text: `PC${pcX} K-mer Distribution` },
               autosize: true,
               margin: { l: 50, r: 50, t: 50, b: 50 },
               xaxis: {
-                title: 'Coding',
+                title: { text: 'Coding' },
                 range: [-0.05, 0.05],
                 showgrid: true,
                 gridcolor: 'lightgray',
-                titlefont: { size: 12 },
                 tickfont: { size: 10 }
               },
               yaxis: {
-                title: 'Non-coding',
+                title: { text: 'Non-coding' },
                 range: [-0.05, 0.05],
                 showgrid: true,
                 gridcolor: 'lightgray',
-                titlefont: { size: 12 },
                 tickfont: { size: 10 }
               },
               showlegend: true,
@@ -256,7 +254,6 @@ const AggregateKmer: React.FC<AggregateProps> = ({
                 y: 1,
                 font: { size: 10 }
               },
-              template: 'simple_white',
               hoverlabel: {
                 bgcolor: 'white',
                 font: { size: 12 }
@@ -275,23 +272,21 @@ const AggregateKmer: React.FC<AggregateProps> = ({
           <Plot
             data={pcYTraces}
             layout={{
-              title: `PC${pcY} K-mer Distribution`,
+              title: { text: `PC${pcY} K-mer Distribution` },
               autosize: true,
               margin: { l: 50, r: 50, t: 50, b: 50 },
               xaxis: {
-                title: 'Coding',
+                title: { text: 'Coding' },
                 range: [-0.05, 0.05],
                 showgrid: true,
                 gridcolor: 'lightgray',
-                titlefont: { size: 12 },
                 tickfont: { size: 10 }
               },
               yaxis: {
-                title: 'Non-coding',
+                title: { text: 'Non-coding' },
                 range: [-0.05, 0.05],
                 showgrid: true,
                 gridcolor: 'lightgray',
-                titlefont: { size: 12 },
                 tickfont: { size: 10 }
               },
               showlegend: true,
@@ -300,7 +295,6 @@ const AggregateKmer: React.FC<AggregateProps> = ({
                 y: 1,
                 font: { size: 10 }
               },
-              template: 'simple_white',
               hoverlabel: {
                 bgcolor: 'white',
                 font: { size: 12 }

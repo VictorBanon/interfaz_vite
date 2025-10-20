@@ -77,13 +77,10 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
   const gffInputRef = useRef<HTMLInputElement>(null);
   const countsInputRef = useRef<HTMLInputElement>(null);
   const seqidSelectRef = useRef<HTMLSelectElement>(null);
-  const viewStartRef = useRef<HTMLInputElement>(null);
-  const viewEndRef = useRef<HTMLInputElement>(null);
   const typeFilterRef = useRef<HTMLInputElement>(null);
   const minLenRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<any>(null);
 
   // --- Utilities ---
   const parseAttrs = (attrStr: string) => {
@@ -415,14 +412,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     const { start, end } = state.view;
     const span = Math.max(1, end - start + 1);
     return left + ((bp - start) / span) * w;
-  };
-
-  const invX = (px: number) => {
-    const { left, right } = state.padding;
-    const w = state.pxWidth - left - right;
-    const { start, end } = state.view;
-    const span = Math.max(1, end - start + 1);
-    return start + ((px - left) / w) * span;
   };
 
   const clearSVG = () => {
@@ -767,7 +756,7 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
   };
 
   // --- File handlers ---
-  const handleFile = (inputRef: React.RefObject<HTMLInputElement>, cb: (text: string) => void) => {
+  const handleFile = (inputRef: React.RefObject<HTMLInputElement | null>, cb: (text: string) => void) => {
     const file = inputRef.current?.files?.[0];
     if (!file) return;
     const reader = new FileReader();

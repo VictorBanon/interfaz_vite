@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Papa from 'papaparse';
 
 interface PostprocessingData {
   [key: string]: string;
@@ -10,10 +9,10 @@ interface PostprocessingViewerProps {
 }
 
 const PostprocessingViewer: React.FC<PostprocessingViewerProps> = ({ selectedOrganism }) => {
-  const [data, setData] = useState<PostprocessingData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [headers, setHeaders] = useState<string[]>([]);
+  const [data] = useState<PostprocessingData[]>([]);
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
+  const [headers] = useState<string[]>([]);
 
   useEffect(() => {
     // Comentado para no cargar automáticamente el archivo

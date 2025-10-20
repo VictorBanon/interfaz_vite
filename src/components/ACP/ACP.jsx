@@ -3,7 +3,7 @@ import Plot from "react-plotly.js"
 import Papa from "papaparse"
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
 
-const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "superkingdom" }) => {
+const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "superkingdom", analysisType = "hc" }) => {
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
 
@@ -12,13 +12,18 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     const updateCsvPath = async () => {
       if (taxon && taxonValue && part) {
         try {
-          const dynamicPath = await buildACPFilePath(taxon, taxonValue, part, 'acp', pcX, pcY)
-          console.log('Dynamic ACP path:', dynamicPath)
+          // Para kmer, usar archivos acp_hc jerárquicos normales (no hay archivos kmer específicos)
+          const aggregateType = 'acp'
+          const dynamicPath = await buildACPFilePath(taxon, taxonValue, part, aggregateType, pcX, pcY)
+          console.log('Dynamic ACP path for', analysisType, ':', dynamicPath)
           setCurrentCsvPath(dynamicPath)
         } catch (error) {
           console.error('Error building dynamic path:', error)
           // Usar ruta por defecto si hay error
-          setCurrentCsvPath(csvPath || `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`)
+          const fallbackPath = analysisType === 'kmer' 
+            ? `/data/philogenie/Bacteria/acp_kmer_Bacteria.csv`
+            : `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`
+          setCurrentCsvPath(csvPath || fallbackPath)
         }
       } else {
         setCurrentCsvPath(csvPath)
@@ -26,7 +31,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     }
     
     updateCsvPath()
-  }, [taxon, taxonValue, part, pcX, pcY, csvPath])
+  }, [taxon, taxonValue, part, pcX, pcY, csvPath, analysisType])
 
   useEffect(() => {
     if (!currentCsvPath) return

@@ -1,19 +1,18 @@
-import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom' 
-import Structural from './pages/structural/Structural'
-import Kmer from './pages/kmer/Kmer' 
-import Introduction from './pages/introduction/Introduction' 
-import Taxonomy from './pages/taxonomy/Taxonomy' 
-import Spatial from './pages/spatial/Spatial' 
-import Compositional from './pages/compositional/Compositional'
-import Motif from './pages/motif/Motif' 
+import Structural from './pages/structural/Structural.jsx'
+import Kmer from './pages/kmer/Kmer.jsx' 
+import Debrief from './pages/debrief/Debrief.jsx' 
+import Taxonomy from './pages/taxonomy/Taxonomy.jsx' 
+import Spatial from './pages/spatial/Spatial.jsx' 
+import Compositional from './pages/compositional/Compositional.jsx'
+import Motif from './pages/motif/Motif.jsx' 
 
 const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Introduction />} />   {/* 👈 add this */}
-        <Route path="/introduction" element={<Introduction />} />
+        <Route path="/" element={<Debrief />} />   
+        <Route path="/introduction" element={<Debrief />} />
         <Route path="/taxonomy" element={<Taxonomy />} />
         <Route path="/structural" element={<Structural />} />
         <Route path="/kmer" element={<Kmer />} />

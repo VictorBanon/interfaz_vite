@@ -361,15 +361,13 @@ const LinearRegressionPlot: React.FC<LinearRegressionPlotProps> = ({ selectedOrg
           margin: { t: 60, l: 60, r: 40, b: 60 },
           autosize: true,
           xaxis: { 
-            title: 'Count',
-            titlefont: { color: '#fff' },
+            title: { text: 'Count' },
             tickfont: { color: '#fff' },
             gridcolor: '#444',
             zerolinecolor: '#666'
           },
           yaxis: { 
-            title: 'Length (bp)',
-            titlefont: { color: '#fff' },
+            title: { text: 'Length (bp)' },
             tickfont: { color: '#fff' },
             gridcolor: '#444',
             zerolinecolor: '#666'

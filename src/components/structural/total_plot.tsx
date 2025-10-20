@@ -8,10 +8,6 @@ interface TotalPlotProps {
   part: string
 }
 
-interface TotalData {
-  [key: string]: any
-}
-
 interface DatasetInfo {
   observedValue: number | null
   simulatedValues: number[]
@@ -195,17 +191,15 @@ const TotalPlot: React.FC<TotalPlotProps> = ({ id, idReplicon, part }) => {
     <Plot
       data={traces}
       layout={{
-        title: `Total Plot - ${idReplicon}`,
+        title: { text: `Total Plot - ${idReplicon}` },
         autosize: true,
         margin: { l: 50, r: 20, t: 60, b: 50 },
         xaxis: {
-          title: 'IR count',
-          titlefont: { size: 12 },
+          title: { text: 'IR count' },
           tickfont: { size: 10 }
         },
         yaxis: {
-          title: 'Frecuencia',
-          titlefont: { size: 12 },
+          title: { text: 'Frecuencia' },
           tickfont: { size: 10 }
         },
         shapes: shapes,

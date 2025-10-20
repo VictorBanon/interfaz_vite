@@ -24,7 +24,7 @@ const Kmer = () => {
     console.log('ACP click:', point);
     setSelectedElement({
       id: point.ID,
-      idReplicon: point['ID-replicon']
+      idReplicon: point['ID-replicon'] || point.idReplicon
     });
   }
 
@@ -92,6 +92,7 @@ const Kmer = () => {
               taxonValue={taxonValue}
               part={part}
               groupBy={groupBy}
+              analysisType="kmer"
             />
 
           </div>

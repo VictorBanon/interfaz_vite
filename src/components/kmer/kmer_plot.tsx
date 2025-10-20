@@ -20,7 +20,7 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
         const parsed = Papa.parse(csvText, { header: true });
         console.log("Parsed CSV:", parsed);
         // Example: extract columns "position" and "value"
-        const formatted = parsed.data.map((row) => ({
+        const formatted = parsed.data.map((row: any) => ({
           Item: row.Item,
           cod: parseFloat(row.cod),   // change to your column name
           non: parseFloat(row.non), // change to your column name
@@ -104,21 +104,21 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
   // Líneas de referencia en ±1
   ;[-1, 1].forEach(val => {
     traces.push({
-      type: 'scatter',
-      mode: 'lines',
+      type: 'scatter' as const,
+      mode: 'lines' as const,
       x: [val, val],
       y: [-4, 4],
-      line: { color: 'black', dash: 'dash' },
+      line: { color: 'black', dash: 'dash' as const },
       showlegend: false,
       xaxis: 'x',
       yaxis: 'y'
     })
     traces.push({
-      type: 'scatter',
-      mode: 'lines',
+      type: 'scatter' as const,
+      mode: 'lines' as const,
       x: [-4, 4],
       y: [val, val],
-      line: { color: 'black', dash: 'dash' },
+      line: { color: 'black', dash: 'dash' as const },
       showlegend: false,
       xaxis: 'x',
       yaxis: 'y'
@@ -127,11 +127,11 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
 
   // Diagonal roja
   traces.push({
-    type: 'scatter',
-    mode: 'lines',
+    type: 'scatter' as const,
+    mode: 'lines' as const,
     x: [-4, 4],
     y: [-4, 4],
-    line: { color: 'red', dash: 'solid' },
+    line: { color: 'red', dash: 'solid' as const },
     name: 'Diagonal',
     xaxis: 'x',
     yaxis: 'y'
@@ -141,7 +141,7 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
     <Plot
       data={traces}
       layout={{
-        title: `Kmer Distribution for ${id || ''}`,
+        title: { text: `Kmer Distribution for ${id || ''}` },
         margin: {
           l: 0,
           r: 0,
@@ -191,8 +191,7 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
           showgrid: false
         },
         barmode: 'overlay',
-        showlegend: true,
-        template: 'simple_white'
+        showlegend: true
       }}
       style={{ width: '100%', height: '100%' }}
       useResizeHandler={true}

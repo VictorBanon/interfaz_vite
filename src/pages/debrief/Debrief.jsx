@@ -1,7 +1,7 @@
 import React from 'react'
 import Sidebar from '../../components/sidebar/Sidebar' 
 
-const Introduction = () => {
+const Debrief = () => {
   return (
     <div className="dashboard">
       <Sidebar /> 
@@ -17,4 +17,4 @@ const Introduction = () => {
   )
 }
 
-export default Introduction
+export default Debrief  

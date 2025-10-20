@@ -154,13 +154,13 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, part }) => {
     return {
       x: xValues,
       y: yValues,
-      type: 'bar',
+      type: 'bar' as const,
       marker: {
         color: dataset.color,
         opacity: 0.7
       },
       text: hoverText,
-      hoverinfo: 'text',
+      hoverinfo: 'text' as const,
       name: dataset.name
     }
   })
@@ -169,17 +169,15 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, part }) => {
     <Plot
       data={traces}
       layout={{
-        title: `Arm Plot - ${idReplicon}`,
+        title: { text: `Arm Plot - ${idReplicon}` },
         autosize: true,
         margin: { l: 50, r: 20, t: 40, b: 50 },
         xaxis: {
-          title: xColumn,
-          titlefont: { size: 12 },
+          title: { text: xColumn },
           tickfont: { size: 10 }
         },
         yaxis: {
-          title: yColumn,
-          titlefont: { size: 12 },
+          title: { text: yColumn },
           tickfont: { size: 10 }
         },
         hoverlabel: {

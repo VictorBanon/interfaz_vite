@@ -111,6 +111,9 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
     } else if (aggregate === 'acp') {
       // Para archivos ACP, usar el formato con acp
       fileName = `acp_hc_${part}_${taxonValue}.csv`
+    } else if (aggregate === 'kmer') {
+      // Para archivos kmer, usar el formato con kmer
+      fileName = `acp_kmer_${taxonValue}.csv`
     } else {
       // Para otros tipos de aggregate, usar estructura diferente si es necesario
       fileName = `acp_hc_${part}_${taxonValue}.csv`
@@ -324,4 +327,71 @@ export const getCumulativeExplainedVariance = (explainedVarianceData, pcNumber) 
     return (explainedVarianceData[pcKey].cumulativeExplainedVariance * 100).toFixed(2)
   }
   return '?'
+}
+
+// Función para construir la ruta jerárquica del archivo Mean/Median
+export const buildMeanMedianFilePath = async (taxon, taxonValue, part, type) => {
+  try {
+    // Cargar los datos de taxonomía si no se han proporcionado
+    const taxonomyData = await readTaxonomyData()
+    
+    // Definir el orden jerárquico de las columnas taxonómicas
+    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    
+    // Encontrar el índice del taxón seleccionado
+    const taxonIndex = hierarchyOrder.indexOf(taxon)
+    if (taxonIndex === -1) {
+      throw new Error(`Taxón no válido: ${taxon}`)
+    }
+    
+    // Obtener la jerarquía hasta el taxón seleccionado
+    const relevantHierarchy = hierarchyOrder.slice(0, taxonIndex + 1)
+    
+    // Buscar la fila que contiene el valor del taxón seleccionado
+    const response = await fetch('/data/taxonomy.csv')
+    const text = await response.text()
+    const lines = text.trim().split('\n')
+    const headers = lines[0].split(',')
+    
+    // Encontrar los índices de las columnas relevantes
+    const columnIndices = {}
+    relevantHierarchy.forEach(col => {
+      columnIndices[col] = headers.indexOf(col)
+    })
+    
+    // Buscar la fila que coincide con el taxonValue
+    let hierarchyValues = null
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',')
+      const targetColumnIndex = columnIndices[taxon]
+      if (values[targetColumnIndex] && values[targetColumnIndex].trim() === taxonValue) {
+        hierarchyValues = {}
+        relevantHierarchy.forEach(level => {
+          const levelIndex = columnIndices[level]
+          hierarchyValues[level] = values[levelIndex].trim()
+        })
+        break
+      }
+    }
+    
+    if (!hierarchyValues) {
+      throw new Error(`No se encontró jerarquía para ${taxon}: ${taxonValue}`)
+    }
+    
+    // Construir la ruta de la carpeta jerárquica
+    const folderPath = relevantHierarchy.map(level => hierarchyValues[level]).join('/')
+    
+    // Construir el nombre del archivo
+    const fileName = `hc_${taxonValue}_${part}_${type}.csv`
+    
+    // Ruta completa
+    const fullPath = `/data/philogenie/${folderPath}/${fileName}`
+    
+    return fullPath
+    
+  } catch (error) {
+    console.error('Error construyendo ruta Mean-Median:', error)
+    // Ruta por defecto en caso de error
+    return `/data/philogenie/Bacteria/hc_Bacteria_${part}_${type}.csv`
+  }
 }

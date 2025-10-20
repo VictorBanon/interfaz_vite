@@ -15,7 +15,7 @@ const TableIR: React.FC<TableIRProps> = ({ selectedRow }) => {
   const [data, setData] = useState<IRData[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState<{ [key: string]: string }>({})
+  const filters: { [key: string]: string } = {}
   const [generalFilter, setGeneralFilter] = useState<string>('')
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [rowsPerPage, setRowsPerPage] = useState<number>(10)

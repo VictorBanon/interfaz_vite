@@ -138,6 +138,7 @@ const Structural = () => {
                 part={part}
                 maxPC={maxPC}
                 selectedPCs={selectedPCs}
+                groupBy={groupBy}
               />
             </div>
           </div>
@@ -176,6 +177,7 @@ const Structural = () => {
                 part={part}
                 maxPC={maxPC}
                 selectedPCs={selectedPCs}
+                groupBy={groupBy}
               />
             </div>
             <div className="card">  

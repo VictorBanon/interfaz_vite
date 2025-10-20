@@ -430,6 +430,21 @@ const Sidebar = ({
  
 
               <label>
+                Group By:
+                <select value={groupBy} onChange={e => handleGroupByChange(e.target.value)}>
+                  <option value="superkingdom">Superkingdom</option>
+                  <option value="class">Class</option>
+                  <option value="order">Order</option>
+                  <option value="family">Family</option>
+                  <option value="genus">Genus</option>
+                  <option value="species">Species</option>
+                  <option value="Replicons_type">Replicons Type</option>
+                  <option value="GC">GC</option>
+                  <option value="size">Size</option>
+                </select>
+              </label>
+
+              <label>
                 Aggregate:
                 <select value={aggregateState} onChange={e => handleAggregateChange(e.target.value)}>
                   <option value="PC">PC</option>

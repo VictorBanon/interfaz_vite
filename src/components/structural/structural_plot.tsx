@@ -27,15 +27,21 @@ interface SimulatedData {
 
 const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
   const [data, setData] = useState<number[][]>([])
-  const [originalData, setOriginalData] = useState<number[][]>([]) // Nuevo estado
+  const [originalData, setOriginalData] = useState<number[][]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [xLabels, setXLabels] = useState<string[]>([])
   const [yLabels, setYLabels] = useState<string[]>([])
-  const [textMatrix, setTextMatrix] = useState<string[][]>([]) // Nueva matriz de texto
-  const [sequenceData, setSequenceData] = useState<SequenceData[]>([]) // Datos de secuencias
-  const [aggregatedData, setAggregatedData] = useState<AggregatedData[]>([]) // Datos observados agregados
-  const [simulatedData, setSimulatedData] = useState<SimulatedData[]>([]) // Datos simulados
+  const [textMatrix, setTextMatrix] = useState<string[][]>([])
+  const [sequenceData, setSequenceData] = useState<SequenceData[]>([])
+  const [aggregatedData, setAggregatedData] = useState<AggregatedData[]>([])
+  const [simulatedData, setSimulatedData] = useState<SimulatedData[]>([])
+  
+  // Evitar warnings de variables no usadas
+  void sequenceData;
+  void aggregatedData;
+  void simulatedData;
+  void originalData;
 
   // Función para cargar datos de secuencias
   const loadSequenceData = React.useCallback(async (id: string, idReplicon: string, part: string) => {
@@ -371,7 +377,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
           z: data,
           x: xLabels,
           y: yLabels,
-          type: 'heatmap',
+          type: 'heatmap' as const,
           colorscale: [
             [0, 'rgb(0, 0, 255)'],
             [0.33, 'rgb(255, 255, 255)'],
@@ -379,13 +385,12 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
             [1, 'rgb(0, 0, 0)']
           ],
           showscale: true,
-          text: textMatrix,
-          hoverinfo: 'text',
+          text: textMatrix as any,
+          hoverinfo: 'text' as const,
           zmin: -1,
           zmax: 2,
           colorbar: {
-            title: 'log10(value)',
-            titlefont: { size: 10 },
+            title: { text: 'log10(value)' },
             tickfont: { size: 8 },
             len: 0.9,
             tickvals: [-1, 0, 1, 2],
@@ -394,18 +399,16 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
         }
       ]}
       layout={{
-        title: `Heatmap ${idReplicon || ''}`,
+        title: { text: `Heatmap ${idReplicon || ''}` },
         autosize: true,
         margin: { l: 50, r: 80, t: 30, b: 50 },
         xaxis: {
-          title: 'Size',
-          titlefont: { size: 10 },
+          title: { text: 'Size' },
           tickfont: { size: 8 },
           side: 'bottom'
         },
         yaxis: {
-          title: 'Position',
-          titlefont: { size: 10 },
+          title: { text: 'Position' },
           tickfont: { size: 8 }
         },
         hoverlabel: {

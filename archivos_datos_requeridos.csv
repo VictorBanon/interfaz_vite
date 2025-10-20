@@ -1,0 +1,29 @@
+Seccion,Tipo_Archivo,Ruta_Template,Descripcion,Variables,Ejemplo_Ruta
+Taxonomy,Principal,/data/taxonomy.csv,Archivo principal con datos taxonomicos,ninguna,/data/taxonomy.csv
+Structural,Individual,/data/{id}/analysis/{idReplicon}_hc_{part}.csv,Datos de componentes principales estructurales,{id} {idReplicon} {part},/data/GCF_000005825/analysis/NC_000913_hc_all.csv
+Structural,Individual,/data/{id}/analysis/{idReplicon}_{part}_obs_top10_per_gap_size.csv,Top 10 observaciones por tamaño de gap,{id} {idReplicon} {part},/data/GCF_000005825/analysis/NC_000913_all_obs_top10_per_gap_size.csv
+Structural,Individual,/data/{id}/analysis/{idReplicon}_{part}_result_obs_aggregated.csv,Resultados observados agregados,{id} {idReplicon} {part},/data/GCF_000005825/analysis/NC_000913_all_result_obs_aggregated.csv
+Structural,Individual,/data/{id}/analysis/{idReplicon}_{part}_result_sim_aggregated.csv,Resultados simulados agregados,{id} {idReplicon} {part},/data/GCF_000005825/analysis/NC_000913_all_result_sim_aggregated.csv
+Structural,Individual,/data/{id}/analysis/{idReplicon}_hb_arm_{type}.csv,Datos de brazos cromosomicos,{id} {idReplicon} {type},/data/GCF_000005825/analysis/NC_000913_hb_arm_all.csv
+Structural,Individual,/data/{id}/analysis/{idReplicon}_hb_gap_{type}.csv,Datos de gaps cromosomicos,{id} {idReplicon} {type},/data/GCF_000005825/analysis/NC_000913_hb_gap_all.csv
+Structural,Agregado,/data/philogenie/Bacteria/hc_{taxonValue}_{part}_{type}.csv,Datos estructurales agregados por taxon,{taxonValue} {part} {type},/data/philogenie/Bacteria/hc_Bacteria_all_min_max.csv
+Structural,Agregado,/data/philogenie/Bacteria/acp_hc_{part}_Bacteria.csv,ACP de datos estructurales,{part},/data/philogenie/Bacteria/acp_hc_all_Bacteria.csv
+Structural,Agregado,/data/philogenie/Bacteria/PC{X}_hc_{part}_Bacteria.csv,Componentes principales estructurales,{X} {part},/data/philogenie/Bacteria/PC1_hc_all_Bacteria.csv
+Kmer,Individual,/data/{id}/analysis/{idReplicon}_ratio_cod_vs_non_6mer.csv,Ratios de 6-mers codificantes vs no codificantes,{id} {idReplicon},/data/GCF_000005825/analysis/NC_000913_ratio_cod_vs_non_6mer.csv
+Kmer,Agregado,/data/philogenie/Bacteria/PC{X}_ratio_cod_vs_non_Bacteria.csv,Componentes principales de ratios kmer,{X},/data/philogenie/Bacteria/PC1_ratio_cod_vs_non_Bacteria.csv
+Kmer,Agregado,/data/philogenie/Bacteria/acp_kmer_Bacteria.csv,ACP de datos kmer,ninguna,/data/philogenie/Bacteria/acp_kmer_Bacteria.csv
+Spatial,Individual,/data/{id}/analysis/{idReplicon}_ir_region.csv,Datos de regiones IR (Inverted Repeats),{id} {idReplicon},/data/GCF_000005825/analysis/NC_000913_ir_region.csv
+Spatial,Individual,/data/{id}/analysis/{idReplicon}_ir_histogram.csv,Histograma de regiones IR,{id} {idReplicon},/data/GCF_000005825/analysis/NC_000913_ir_histogram.csv
+Variables,Descripcion,Valores_Posibles,Contexto,Notas,
+{id},ID del organismo,"Ejemplo: GCF_000005825",Identificador unico del organismo,Se obtiene de taxonomy.csv
+{idReplicon},ID del replicon,"Ejemplo: NC_000913",Identificador del replicon/cromosoma,Se obtiene de taxonomy.csv
+{part},Parte genomica analizada,"all, cod, non",Especifica que region del genoma,all=completo cod=codificante non=no-codificante
+{type},Tipo de analisis,"min_max, obs, sim, all, cod, non",Especifica el tipo de datos,Varia segun el componente
+{taxonValue},Valor taxonomico,"Bacteria, Archaea, etc",Nivel taxonomico para agregacion,Se obtiene de la seleccion del usuario
+{X},Numero de componente principal,"1, 2, 3, 4, 5, 6",Numero del PC en analisis,Se selecciona en la interfaz
+Notas_Adicionales,Informacion_Importante,,,
+1,El archivo taxonomy.csv es fundamental para todas las secciones,,,
+2,Los archivos individuales requieren seleccion previa de organismo,,,
+3,Los archivos agregados son para visualizaciones generales,,,
+4,Todos los archivos deben estar en formato CSV con headers,,,
+5,Las rutas con {variables} deben ser sustituidas dinamicamente,,,
