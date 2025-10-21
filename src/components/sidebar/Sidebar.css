@@ -5,6 +5,73 @@
   font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   font-size: 0.95rem;
   color: #fff; /* white font */
+  transition: width 0.3s ease, padding 0.3s ease;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  padding: 8px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.collapse-btn {
+  background: #3498db;
+  border: none;
+  color: white;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  min-width: 32px;
+}
+
+.collapse-btn:hover {
+  background: #2980b9;
+}
+
+.sidebar.collapsed .sidebar-header h2,
+.sidebar.collapsed ul,
+.sidebar.collapsed .manager,
+.sidebar.collapsed .test-text {
+  display: none;
+}
+
+.sidebar.collapsed ul {
+  margin-top: 10px;
+}
+
+.sidebar.collapsed li a {
+  display: flex;
+  justify-content: center;
+  padding: 8px 4px;
+  font-size: 10px;
+  text-align: center;
+  min-height: 32px;
+  align-items: center;
+}
+
+.collapsed-menu {
+  margin-top: 8px;
+}
+
+.collapsed-menu li {
+  margin-bottom: 8px;
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+}
+
+.sidebar.collapsed h2.hidden {
+  display: none;
 }
 
 .sidebar h2 {

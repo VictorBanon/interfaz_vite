@@ -160,12 +160,31 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     }))
   }
 
+  // Calcular el número total de puntos
+  const totalPoints = data.length
+
+  // Crear título dinámico con taxón y número de puntos
+  const getTitle = () => {
+    const baseTitle = `PC${pcY} vs PC${pcX}`
+    if (taxonValue && totalPoints > 0) {
+      return `${taxonValue} (${totalPoints} puntos) - ${baseTitle}`
+    } else if (totalPoints > 0) {
+      return `${baseTitle} (${totalPoints} puntos)`
+    }
+    return baseTitle
+  }
+
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Plot
         data={traces}
         layout={{
-          title: `PC${pcY} vs PC${pcX}`,
+          title: {
+            text: getTitle(),
+            font: { size: 12 },
+            x: 0.5,
+            xanchor: 'center'
+          },
           xaxis: { 
             title: `PC${pcX}`,
             titlefont: { size: 8 },
@@ -178,7 +197,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
           },
           hovermode: "closest",
           autosize: true,
-          margin: { l: 20, r: 100, t: 20, b: 20 }, // Increased right margin for colorbar
+          margin: { l: 20, r: 100, t: 50, b: 20 }, // Increased top margin for title
           height: null,
           width: null,
           showlegend: true // Forzar mostrar leyenda siempre
@@ -209,6 +228,12 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
               onPointClick({ 
                 ID: point.ID,
                 "ID-replicon": point["ID-replicon"],
+                fullname: point.fullname,
+                name: point.name,
+                species: point.species,
+                genus: point.genus,
+                // Pasar todos los campos disponibles
+                ...point
               });
             }
           }

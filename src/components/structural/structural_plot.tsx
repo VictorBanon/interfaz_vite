@@ -5,6 +5,7 @@ import Papa from 'papaparse'
 interface HeatmapProps {
   id?: string
   idReplicon?: string
+  name?: string
   part: string
 }
 
@@ -25,9 +26,12 @@ interface SimulatedData {
   positions: { [position: number]: number[] }
 }
 
-const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
+const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
   const [data, setData] = useState<number[][]>([])
   const [originalData, setOriginalData] = useState<number[][]>([])
+  
+  // Debug log para ver qué datos llegan
+  console.log('Heatmap component props:', { id, idReplicon, name, part })
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [xLabels, setXLabels] = useState<string[]>([])
@@ -399,7 +403,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, part }) => {
         }
       ]}
       layout={{
-        title: { text: `Heatmap ${idReplicon || ''}` },
+        title: { text: `Heatmap ${name || idReplicon || ''} ${idReplicon && name ? `(${idReplicon})` : ''}` },
         autosize: true,
         margin: { l: 50, r: 80, t: 30, b: 50 },
         xaxis: {

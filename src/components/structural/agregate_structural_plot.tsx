@@ -338,9 +338,20 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             const pcColumns = Object.keys(filteredData[0] || {}).filter(key => key.startsWith('PC'))
             const taxonomicColumns = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
             
+            // Sort data alphabetically by taxonomic columns (like pandas df.sort_values)
+            const sortedData = filteredData.sort((a: any, b: any) => {
+              for (const column of taxonomicColumns) {
+                const aVal = (a[column] || '').toString().toLowerCase()
+                const bVal = (b[column] || '').toString().toLowerCase()
+                if (aVal < bVal) return -1
+                if (aVal > bVal) return 1
+              }
+              return 0
+            })
+            
             // Build taxonomic tree structure
             const taxonomicTree: any = {}
-            filteredData.forEach((row: any) => {
+            sortedData.forEach((row: any) => {
               let current = taxonomicTree
               taxonomicColumns.forEach((level) => {
                 const value = row[level] || 'Unknown'
@@ -352,7 +363,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               })
             })
             
-            resolve({ data: filteredData, pcColumns, taxonomicTree, taxonomicColumns })
+            resolve({ data: sortedData, pcColumns, taxonomicTree, taxonomicColumns })
           },
           error: (error: any) => reject(error)
         })
@@ -1195,17 +1206,38 @@ const AggregateStructural: React.FC<AggregateProps> = ({
         })
       })
       
-      // Calculate Y positions based on sample alignment
+      // Calculate Y positions based on sample alignment and add statistics
       Object.keys(pathToSamples).forEach(path => {
         const samples = pathToSamples[path]
         const avgY = samples.reduce((sum, idx) => sum + idx, 0) / samples.length
         nodePositions[path].y = avgY
         
-        // Update node with sample info
+        // Update node with sample info and statistics
         const node = treeNodes.find(n => n.path === path)
         if (node) {
           node.samples = samples
           node.y = avgY
+          
+          // Calculate additional statistics for all nodes
+          const sampleData = samples.map(idx => data[idx])
+          const uniqueIds = new Set(sampleData.map(row => row.ID).filter(Boolean))
+          const uniqueRepliconIds = new Set(sampleData.map(row => row['ID-replicon']).filter(Boolean))
+          const totalDataCount = data.length
+          
+          node.uniqueIds = uniqueIds.size
+          node.uniqueRepliconIds = uniqueRepliconIds.size
+          node.totalSamples = samples.length
+          node.percentageOfTotal = ((samples.length / totalDataCount) * 100).toFixed(1)
+        }
+      })
+      
+      // Ensure all nodes have default statistics if they weren't calculated above
+      treeNodes.forEach(node => {
+        if (node.uniqueIds === undefined) {
+          node.uniqueIds = 0
+          node.uniqueRepliconIds = 0
+          node.totalSamples = 0
+          node.percentageOfTotal = '0.0'
         }
       })
       
@@ -1318,11 +1350,19 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               }
             },
             hovertemplate: 
-              `<b>${column}:</b> %{customdata}<br>` +
-              '<b>Samples:</b> ' + levelNodes.map(n => n.samples.length).join(', ') + '<br>' +
-              '<b>Avg Position:</b> %{y:.1f}<br>' +
+              `<b>${column}:</b> %{customdata.name}<br>` +
+              '<b>Replicones únicos:</b> %{customdata.uniqueRepliconIds}<br>' +
+              '<b>IDs únicos:</b> %{customdata.uniqueIds}<br>' +
+              '<b>Total muestras:</b> %{customdata.totalSamples}<br>' +
+              '<b>% del total:</b> %{customdata.percentageOfTotal}%<br>' +
               '<extra></extra>',
-            customdata: levelNodes.map(n => n.name),
+            customdata: levelNodes.map(n => ({
+              name: n.name,
+              uniqueRepliconIds: n.uniqueRepliconIds || 0,
+              uniqueIds: n.uniqueIds || 0,
+              totalSamples: n.totalSamples || 0,
+              percentageOfTotal: n.percentageOfTotal || '0.0'
+            })),
             name: column,
             showlegend: false
           })

@@ -18,6 +18,7 @@ const Sidebar = ({
   onMaxPCChange,
   onSelectedPCsChange,
   onGroupByChange,
+  onTaxonomyPlotChange, // Nuevo prop para manejar el cambio de plot en taxonomy
   aggregate,
   taxon: initialTaxon,
   taxonValue: initialTaxonValue,
@@ -38,6 +39,12 @@ const Sidebar = ({
   const [pcY, setPcY] = useState(1)
   const [maxPC, setMaxPC] = useState(initialMaxPC || 6)
   const [selectedPCs, setSelectedPCs] = useState(initialSelectedPCs || [1, 2, 3, 4, 5, 6])
+  
+  // Estado para sidebar colapsable
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  
+  // Estado para tipo de plot en taxonomy
+  const [taxonomyPlotType, setTaxonomyPlotType] = useState("icicle")
   
   // Estados para datos de taxonomía
   const [taxonomyData, setTaxonomyData] = useState(null)
@@ -171,24 +178,60 @@ const Sidebar = ({
     onGroupByChange?.(newGroupBy)
   }
 
+  const handleTaxonomyPlotChange = (newPlotType) => {
+    setTaxonomyPlotType(newPlotType)
+    onTaxonomyPlotChange?.(newPlotType)
+  }
+
+  // Función para mostrar texto completo o abreviado
+  const getLinkText = (fullText, shortText) => {
+    return isCollapsed ? shortText : fullText
+  }
+
   return (
-    <aside className="sidebar">
-      <h2>Menú</h2>
-      <ul>
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+      <div className="sidebar-header">
+        <h2 className={isCollapsed ? 'hidden' : ''}>Menú</h2>
+        <button 
+          className="collapse-btn"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+        >
+          {isCollapsed ? '▶' : '◀'}
+        </button>
+      </div>
+      <ul className={isCollapsed ? 'collapsed-menu' : ''}>
         <li>
-          <Link to="/introduction">Introduction</Link>
-          {location.pathname === '/introduction' && (
+          <Link to="/introduction" title={isCollapsed ? 'Introduction' : ''}>
+            {getLinkText('Introduction', 'Intro')}
+          </Link>
+          {!isCollapsed && location.pathname === '/introduction' && (
             <p className="test-text">✅ Test: You are on Introduction</p>
           )}
         </li>
 
         <li>
-          <Link to="/taxonomy">Taxonomy</Link> 
+          <Link to="/taxonomy" title={isCollapsed ? 'Taxonomy' : ''}>
+            {getLinkText('Taxonomy', 'Tax')}
+          </Link>
+          {!isCollapsed && location.pathname === '/taxonomy' && (
+            <div className="manager">
+              <label>
+                Plot Type:
+                <select value={taxonomyPlotType} onChange={e => handleTaxonomyPlotChange(e.target.value)}>
+                  <option value="icicle">Icicle</option>
+                  <option value="treemap">Treemap</option>
+                </select>
+              </label>
+            </div>
+          )}
         </li>
 
         <li>
-          <Link to="/structural">Structural</Link>
-          {location.pathname === '/structural' && (
+          <Link to="/structural" title={isCollapsed ? 'Structural' : ''}>
+            {getLinkText('Structural', 'Struct')}
+          </Link>
+          {!isCollapsed && location.pathname === '/structural' && (
             <div className="manager">
               <label>
                 Taxon:
@@ -404,8 +447,10 @@ const Sidebar = ({
         </li>
 
         <li>
-          <Link to="/kmer">Kmer</Link>
-          {location.pathname === '/kmer' && (
+          <Link to="/kmer" title={isCollapsed ? 'Kmer' : ''}>
+            {getLinkText('Kmer', 'Kmer')}
+          </Link>
+          {!isCollapsed && location.pathname === '/kmer' && (
             <div className="manager">
               <label>
                 Taxon:
@@ -503,22 +548,28 @@ const Sidebar = ({
         </li>
 
         <li>
-          <Link to="/spatial">Spatial</Link>
-          {location.pathname === '/spatial' && (
+          <Link to="/spatial" title={isCollapsed ? 'Spatial' : ''}>
+            {getLinkText('Spatial', 'Spat')}
+          </Link>
+          {!isCollapsed && location.pathname === '/spatial' && (
             <p className="test-text">✅ Test: You are on Spatial</p>
           )}
         </li>
 
         <li>
-          <Link to="/motif">Motif Search</Link>
-          {location.pathname === '/motif' && (
+          <Link to="/motif" title={isCollapsed ? 'Motif Search' : ''}>
+            {getLinkText('Motif Search', 'Motif')}
+          </Link>
+          {!isCollapsed && location.pathname === '/motif' && (
             <p className="test-text">✅ Test: You are on Motif Search</p>
           )}
         </li>
 
         <li>
-          <Link to="/compositional">Compositional</Link>
-          {location.pathname === '/compositional' && (
+          <Link to="/compositional" title={isCollapsed ? 'Compositional' : ''}>
+            {getLinkText('Compositional', 'Comp')}
+          </Link>
+          {!isCollapsed && location.pathname === '/compositional' && (
             <div className="manager">
               <label>
                 Taxon:

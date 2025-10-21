@@ -5,6 +5,7 @@ import Papa from 'papaparse'
 interface GapPlotProps {
   id?: string
   idReplicon?: string
+  name?: string
   part: string
 }
 
@@ -18,7 +19,7 @@ interface DatasetInfo {
   color: string
 }
 
-const GapPlot: React.FC<GapPlotProps> = ({ id, idReplicon, part }) => {
+const GapPlot: React.FC<GapPlotProps> = ({ id, idReplicon, name, part }) => {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -169,7 +170,7 @@ const GapPlot: React.FC<GapPlotProps> = ({ id, idReplicon, part }) => {
     <Plot
       data={traces}
       layout={{
-        title: { text: `Gap Plot - ${idReplicon}` },
+        title: { text: `Gap Plot - ${name || idReplicon} ${idReplicon && name ? `(${idReplicon})` : ''}` },
         autosize: true,
         margin: { l: 50, r: 20, t: 40, b: 50 },
         xaxis: {

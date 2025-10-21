@@ -30,16 +30,21 @@ const Structural = () => {
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
+    console.log('Available fields in point:', Object.keys(point));
     setSelectedElement({
       id: point.ID,
-      idReplicon: point['ID-replicon']
+      idReplicon: point['ID-replicon'],
+      name: point.fullname || point.name || point['fullname'] || ''
     });
   }
 
   const handleTableClick = (row) => {
+    console.log('Table click:', row);
+    console.log('Available fields in row:', Object.keys(row));
     setSelectedElement({
       id: row.ID,
-      idReplicon: row['ID-replicon']
+      idReplicon: row['ID-replicon'],
+      name: row.fullname || row.name || row['fullname'] || ''
     })
   }
 
@@ -195,13 +200,13 @@ const Structural = () => {
                 </div>
                 <div className="tab-content">
                   {activeTab === "gap/arm" && (
-                    <Heatmap id={selectedElement.id} idReplicon={selectedElement.idReplicon} part={part} />
+                    <Heatmap id={selectedElement.id} idReplicon={selectedElement.idReplicon} name={selectedElement.name} part={part} />
                   )}
                   {activeTab === "gap" && (
-                    <GapPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} part={part} />
+                    <GapPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} name={selectedElement.name} part={part} />
                   )}
                   {activeTab === "arm" && (
-                    <ArmPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} part={part} />
+                    <ArmPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} name={selectedElement.name} part={part} />
                   )}
                   {activeTab === "total" && (
                     <TotalPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} part={part} />
