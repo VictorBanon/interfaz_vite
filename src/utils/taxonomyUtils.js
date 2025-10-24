@@ -98,37 +98,39 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
     }
     
     if (!hierarchyValues) {
-      throw new Error(`No se encontró jerarquía para ${taxon}: ${taxonValue}`)
+      throw new Error(`Hierarchy not found for ${taxon}: ${taxonValue}`)
     }
     
-    // Construir la ruta de la carpeta jerárquica
+    // Build hierarchical folder path
     const folderPath = relevantHierarchy.map(level => hierarchyValues[level]).join('/')
     
-    // Construir el nombre del archivo basado en los parámetros
+    // Build file name based on parameters
     let fileName
     if (aggregate === 'PC') {
       fileName = `PC${pcX}_hc_${part}_${taxonValue}.csv`
     } else if (aggregate === 'acp') {
-      // Para archivos ACP, usar el formato con acp
+      // For ACP files, use format with acp
       fileName = `acp_hc_${part}_${taxonValue}.csv`
     } else if (aggregate === 'kmer') {
-      // Para archivos kmer, usar el formato con kmer
+      // For kmer files, use kmer-specific format (no part parameter for kmer)
       fileName = `acp_kmer_${taxonValue}.csv`
     } else {
-      // Para otros tipos de aggregate, usar estructura diferente si es necesario
+      // For other aggregate types, use different structure if needed
       fileName = `acp_hc_${part}_${taxonValue}.csv`
     }
     
-    // Ruta completa
+    // Full path
     const fullPath = `/data/philogenie/${folderPath}/${fileName}`
     
     return fullPath
     
   } catch (error) {
-    console.error('Error construyendo ruta ACP:', error)
-    // Ruta por defecto en caso de error
+    console.error('Error building ACP path:', error)
+    // Default path in case of error
     if (aggregate === 'PC') {
       return `/data/philogenie/Bacteria/PC${pcX}_hc_${part}_Bacteria.csv`
+    } else if (aggregate === 'kmer') {
+      return `/data/philogenie/Bacteria/acp_kmer_Bacteria.csv`
     } else {
       return `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`
     }

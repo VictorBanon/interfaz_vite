@@ -202,15 +202,6 @@ const Sidebar = ({
       </div>
       <ul className={isCollapsed ? 'collapsed-menu' : ''}>
         <li>
-          <Link to="/introduction" title={isCollapsed ? 'Introduction' : ''}>
-            {getLinkText('Introduction', 'Intro')}
-          </Link>
-          {!isCollapsed && location.pathname === '/introduction' && (
-            <p className="test-text">✅ Test: You are on Introduction</p>
-          )}
-        </li>
-
-        <li>
           <Link to="/taxonomy" title={isCollapsed ? 'Taxonomy' : ''}>
             {getLinkText('Taxonomy', 'Tax')}
           </Link>
@@ -286,6 +277,7 @@ const Sidebar = ({
                   <option value="Mean-Median">Mean-Median</option>
                   <option value="ACPvsAll">ACPvsAll</option>
                   <option value="PCA_Taxon">PCA Taxon</option>
+                  <option value="Variance explained">Variance explained</option>
                  </select>
               </label>
 
@@ -592,6 +584,15 @@ const Sidebar = ({
                 </select>
               </label>
             </div>
+          )}
+        </li>
+
+        <li>
+          <Link to="/errors" title={isCollapsed ? 'File System Analysis' : ''}>
+            {getLinkText('File System Analysis', 'Errors')}
+          </Link>
+          {!isCollapsed && location.pathname === '/errors' && (
+            <p className="test-text">✅ Test: You are on File System Analysis</p>
           )}
         </li>
       </ul>

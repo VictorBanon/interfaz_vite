@@ -36,7 +36,7 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
       complete: (result) => {
         setData(result.data)
       },
-      error: (err) => console.error('Error loading default CSV:', err)
+      error: (err) => console.error(`Error loading default CSV from ${defaultCsvPath}:`, err)
     })
   }, [])
 

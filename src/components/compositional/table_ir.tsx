@@ -73,6 +73,11 @@ const TableIR: React.FC<TableIRProps> = ({ selectedRow }) => {
         
         const csvText = await response.text()
         
+        // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+        if (csvText.trim().toLowerCase().startsWith('<!doctype html>') || csvText.trim().toLowerCase().startsWith('<html')) {
+          throw new Error(`IR data file not found: ${csvPath}. The server returned HTML instead of CSV data.`)
+        }
+        
         Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
@@ -193,8 +198,11 @@ const TableIR: React.FC<TableIRProps> = ({ selectedRow }) => {
   if (loading) {
     return (
       <div className="csv-window">
-        <div className="loading-state">
-          <p>Cargando datos IR...</p>
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h3>Loading IR data...</h3>
+          {selectedRow && (
+            <p>Loading data for {selectedRow.species} ({selectedRow.ID})</p>
+          )}
         </div>
       </div>
     )
@@ -203,8 +211,35 @@ const TableIR: React.FC<TableIRProps> = ({ selectedRow }) => {
   if (error) {
     return (
       <div className="csv-window">
-        <div className="error-state">
-          <p style={{ color: 'red' }}>Error: {error}</p>
+        <div style={{
+          backgroundColor: '#4a1a1a',
+          border: '1px solid #cc4444',
+          borderRadius: '8px',
+          padding: '16px',
+          margin: '16px',
+          color: '#ffffff'
+        }}>
+          <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ IR Data Not Found</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+            {error}
+          </p>
+          {selectedRow && (
+            <div style={{ 
+              fontSize: '0.8rem', 
+              color: '#999',
+              marginTop: '10px',
+              padding: '10px',
+              backgroundColor: '#2a2a2a',
+              borderRadius: '4px'
+            }}>
+              <strong>Organism:</strong> {selectedRow.species} ({selectedRow.ID})<br/>
+              <strong>Replicon:</strong> {selectedRow['ID-replicon']}<br/>
+              <strong>Expected file:</strong> {selectedRow.ID}/analysis/{selectedRow['ID-replicon']}_rich_ir.csv
+            </div>
+          )}
+          <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+            💡 <strong>Tip:</strong> This file contains inverted repeat analysis data for compositional studies.
+          </div>
         </div>
       </div>
     )

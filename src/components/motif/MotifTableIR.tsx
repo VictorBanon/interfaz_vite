@@ -62,7 +62,7 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
       const repliconId = selectedOrganism['ID-replicon']
       
       if (!assemblyId || !repliconId) {
-        setError('No se pudo identificar el ID de la muestra o del replicón')
+        setError('Could not identify sample ID or replicon ID')
         setLoading(false)
         return
       }
@@ -72,10 +72,17 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
       try {
         const response = await fetch(csvPath)
         if (!response.ok) {
-          throw new Error(`No se pudo cargar el archivo: ${csvPath}`)
+          throw new Error(`File not found: ${csvPath} (HTTP ${response.status})`)
         }
         
         const csvText = await response.text()
+        
+        // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+        if (csvText.trim().toLowerCase().startsWith('<!doctype html>') || csvText.trim().toLowerCase().startsWith('<html')) {
+          setError(`IR data file not found: ${csvPath}. The server returned HTML instead of CSV data.`)
+          setLoading(false)
+          return
+        }
         
         Papa.parse(csvText, {
           header: true,
@@ -96,12 +103,12 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
             setLoading(false)
           },
           error: (err: any) => {
-            setError(`Error al parsear el archivo CSV: ${err.message}`)
+            setError(`Error parsing CSV file ${csvPath}: ${err.message}`)
             setLoading(false)
           }
         })
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido')
+        setError(err instanceof Error ? err.message : `Unknown error loading file: ${csvPath}`)
         setLoading(false)
       }
     }
@@ -193,7 +200,8 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
   }
 
   // Función para truncar texto dinámicamente
-  const truncateText = (text: string, maxLength?: number): string => {
+  const truncateText = (text: string | undefined | null, maxLength?: number): string => {
+    if (!text || typeof text !== 'string') return '';
     const dynamicMaxLength = maxLength || calculateMaxCharsPerColumn()
     if (text.length <= dynamicMaxLength) return text
     return text.substring(0, dynamicMaxLength) + '...'
@@ -222,8 +230,35 @@ const MotifTableIR: React.FC<MotifTableIRProps> = ({ selectedOrganism, onRowClic
   if (error) {
     return (
       <div className="csv-window">
-        <div className="error-state">
-          <p style={{ color: 'red' }}>Error: {error}</p>
+        <div style={{
+          backgroundColor: '#4a1a1a',
+          border: '1px solid #cc4444',
+          borderRadius: '8px',
+          padding: '16px',
+          margin: '16px',
+          color: '#ffffff'
+        }}>
+          <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ IR Data Not Found</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+            {error}
+          </p>
+          {selectedOrganism && (
+            <div style={{ 
+              fontSize: '0.8rem', 
+              color: '#999',
+              marginTop: '10px',
+              padding: '10px',
+              backgroundColor: '#2a2a2a',
+              borderRadius: '4px'
+            }}>
+              <strong>Organism:</strong> <em>{selectedOrganism.genus} {selectedOrganism.species}</em> ({selectedOrganism.ID})<br/>
+              <strong>Replicon:</strong> {selectedOrganism['ID-replicon']}<br/>
+              <strong>Expected file:</strong> {selectedOrganism.ID}/analysis/{selectedOrganism['ID-replicon']}_rich_ir.csv
+            </div>
+          )}
+          <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+            💡 <strong>Tip:</strong> This file contains inverted repeat motif data for the selected organism.
+          </div>
         </div>
       </div>
     )

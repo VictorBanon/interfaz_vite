@@ -25,6 +25,8 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
   const [popup, setPopup] = useState<PopupState>({ column: null, position: { x: 0, y: 0 } })
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null })
   const [rowsPerPage, setRowsPerPage] = useState<number>(10)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Efecto para calcular el número de filas automáticamente
   useEffect(() => {
@@ -69,14 +71,22 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
   // Load default CSV on mount
   useEffect(() => {
     const defaultCsvPath = '/data/taxonomy.csv'
+    setLoading(true)
+    setError(null)
+    
     Papa.parse(defaultCsvPath, {
       header: true,
       download: true,
       skipEmptyLines: true,
       complete: (result) => {
         setData(result.data)
+        setLoading(false)
       },
-      error: (err) => console.error('Error loading default CSV:', err)
+      error: (err) => {
+        console.error(`Error loading default CSV from ${defaultCsvPath}:`, err)
+        setError(`Could not load taxonomy data: ${err.message || 'Unknown error'}`)
+        setLoading(false)
+      }
     })
   }, [])
 
@@ -254,6 +264,51 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
+
+  if (loading) {
+    return (
+      <div className="csv-window">
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h3>Loading taxonomy data...</h3>
+          <p>Please wait while we load the organism data.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="csv-window">
+        <div style={{
+          backgroundColor: '#4a1a1a',
+          border: '1px solid #cc4444',
+          borderRadius: '8px',
+          padding: '16px',
+          margin: '16px',
+          color: '#ffffff'
+        }}>
+          <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ Taxonomy Data Not Found</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+            {error}
+          </p>
+          <div style={{ 
+            fontSize: '0.8rem', 
+            color: '#999',
+            marginTop: '10px',
+            padding: '10px',
+            backgroundColor: '#2a2a2a',
+            borderRadius: '4px'
+          }}>
+            <strong>Expected file:</strong> /data/taxonomy.csv<br/>
+            This file contains the list of organisms available for analysis.
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+            💡 <strong>Tip:</strong> Make sure the taxonomy.csv file is available in the /data/ directory.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="csv-window">

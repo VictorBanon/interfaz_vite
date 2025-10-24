@@ -19,7 +19,17 @@ const buildClusterIRFilePath = async (taxon: string, taxonValue: string) => {
   try {
     // Cargar los datos de taxonomía
     const response = await fetch('/data/taxonomy.csv')
+    if (!response.ok) {
+      throw new Error(`Could not load taxonomy file (HTTP ${response.status})`)
+    }
+    
     const text = await response.text()
+    
+    // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+    if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
+      throw new Error('Taxonomy file not found. The server returned HTML instead of CSV data.')
+    }
+    
     const lines = text.trim().split('\n')
     const headers = lines[0].split(',')
     
@@ -147,7 +157,16 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
         
         // Leer el archivo manualmente primero
         const response = await fetch(currentCsvPath)
+        if (!response.ok) {
+          throw new Error(`File not found: ${currentCsvPath} (HTTP ${response.status})`)
+        }
+        
         const text = await response.text()
+        
+        // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+        if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
+          throw new Error(`Cluster IR file not found: ${currentCsvPath}. The server returned HTML instead of CSV data.`)
+        }
         
         Papa.parse(text, {
           header: true,
@@ -295,8 +314,9 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
   if (loading) {
     return (
       <div className="csv-window">
-        <div className="loading-state">
-          <p>Cargando datos de clusters IR...</p>
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h3>Loading cluster IR data...</h3>
+          <p>Loading {taxonValue} clusters for {taxon} analysis...</p>
         </div>
       </div>
     )
@@ -305,8 +325,33 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
   if (error) {
     return (
       <div className="csv-window">
-        <div className="error-state">
-          <p style={{ color: 'red' }}>Error: {error}</p>
+        <div style={{
+          backgroundColor: '#4a1a1a',
+          border: '1px solid #cc4444',
+          borderRadius: '8px',
+          padding: '16px',
+          margin: '16px',
+          color: '#ffffff'
+        }}>
+          <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ Cluster IR Data Not Found</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+            {error}
+          </p>
+          <div style={{ 
+            fontSize: '0.8rem', 
+            color: '#999',
+            marginTop: '10px',
+            padding: '10px',
+            backgroundColor: '#2a2a2a',
+            borderRadius: '4px'
+          }}>
+            <strong>Taxon:</strong> {taxon}<br/>
+            <strong>Value:</strong> {taxonValue}<br/>
+            <strong>Expected file:</strong> /data/philogenie/{taxonValue}/cluster_IR_{taxonValue}_all.csv
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+            💡 <strong>Tip:</strong> This file contains cluster analysis data for compositional studies.
+          </div>
         </div>
       </div>
     )

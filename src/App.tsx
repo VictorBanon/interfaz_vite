@@ -5,20 +5,21 @@ import Debrief from './pages/debrief/Debrief.jsx'
 import Taxonomy from './pages/taxonomy/Taxonomy.jsx' 
 import Spatial from './pages/spatial/Spatial.jsx' 
 import Compositional from './pages/compositional/Compositional.jsx'
-import Motif from './pages/motif/Motif.jsx' 
+import Motif from './pages/motif/Motif.jsx'
+import Errors from './pages/errors/Errors.tsx' 
 
 const App = () => {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Debrief />} />   
-        <Route path="/introduction" element={<Debrief />} />
         <Route path="/taxonomy" element={<Taxonomy />} />
         <Route path="/structural" element={<Structural />} />
         <Route path="/kmer" element={<Kmer />} />
         <Route path="/spatial" element={<Spatial />} />
         <Route path="/compositional" element={<Compositional />} />
         <Route path="/motif" element={<Motif />} />
+        <Route path="/errors" element={<Errors />} />
       </Routes> 
     </Router>
   )

@@ -16,12 +16,6 @@ declare module './pages/kmer/Kmer.jsx' {
   export default Component;
 }
 
-declare module './pages/introduction/Introduction.jsx' {
-  import { ComponentType } from 'react';
-  const Component: ComponentType<any>;
-  export default Component;
-}
-
 declare module './pages/taxonomy/Taxonomy.jsx' {
   import { ComponentType } from 'react';
   const Component: ComponentType<any>;

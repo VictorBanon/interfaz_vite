@@ -95,7 +95,7 @@ const LinearRegressionPlot: React.FC<LinearRegressionPlotProps> = ({ selectedOrg
         console.log('Datos válidos después del filtrado:', validData.length);
         
         if (validData.length === 0) {
-          setError(`No se encontraron datos válidos para ${repliconId}`);
+          setError(`No valid data found for ${repliconId}`);
           setLoading(false);
           return;
         }
@@ -114,8 +114,8 @@ const LinearRegressionPlot: React.FC<LinearRegressionPlotProps> = ({ selectedOrg
         setLoading(false);
       },
       error: (error) => {
-        console.error('Error cargando CSV para', repliconId, ':', error);
-        setError(`Error cargando datos para ${repliconId}: ${error.message}`);
+        console.error('Error loading CSV for', repliconId, ':', error);
+        setError(`Error loading data for ${repliconId}: ${error.message}`);
         setLoading(false);
       }
     });

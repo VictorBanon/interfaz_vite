@@ -9,33 +9,89 @@ interface KmerPlotProps {
 }
 
 const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => {
-  const [data, setData] = React.useState<any[]>(uploadedData || []) // Initialize with uploadedData
+  const [data, setData] = React.useState<any[]>(uploadedData || [])
+  const [loading, setLoading] = React.useState<boolean>(false)
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    if (!id || !idReplicon) return
+
     const filePath = `/data/${id}/analysis/${idReplicon}_ratio_cod_vs_non_6mer.csv`;
+    
+    setLoading(true)
+    setError(null)
 
     fetch(filePath)
-      .then((res) => res.text())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`File not found: ${filePath} (HTTP ${res.status})`)
+        }
+        return res.text()
+      })
       .then((csvText) => {
         const parsed = Papa.parse(csvText, { header: true });
-        console.log("Parsed CSV:", parsed);
-        // Example: extract columns "position" and "value"
-        const formatted = parsed.data.map((row: any) => ({
-          Item: row.Item,
-          cod: parseFloat(row.cod),   // change to your column name
-          non: parseFloat(row.non), // change to your column name
-          color: row.color, // change to your column name
-        }));
+        console.log("Parsed CSV from:", filePath);
+        
+        if (parsed.errors.length > 0) {
+          throw new Error(`CSV parsing error: ${parsed.errors[0].message}`)
+        }
+        
+        const formatted = parsed.data
+          .filter((row: any) => row.Item && row.cod !== undefined && row.non !== undefined)
+          .map((row: any) => ({
+            Item: row.Item,
+            cod: parseFloat(row.cod),
+            non: parseFloat(row.non),
+            color: row.color,
+          }));
         setData(formatted);
       })
-      .catch((err) => console.error("Error loading CSV:", err));
+      .catch((err) => {
+        console.error("Error loading CSV:", err);
+        setError(err.message)
+      })
+      .finally(() => {
+        setLoading(false)
+      });
   }, [id, idReplicon]);
 
-  console.log("data:", data);
+  if (loading) {
+    return <div style={{ padding: '20px', textAlign: 'center' }}>Loading k-mer data...</div>
+  }
 
+  if (error) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center', 
+        color: '#e74c3c',
+        border: '2px solid #e74c3c',
+        borderRadius: '5px',
+        margin: '10px'
+      }}>
+        <h3>Error Loading K-mer Data</h3>
+        <p>{error}</p>
+        <p style={{ fontSize: '0.8em', color: '#666' }}>
+          ID: {id} | Replicon: {idReplicon}
+        </p>
+      </div>
+    )
+  }
 
   if (!data || data.length === 0) {
-    return <div>No hay datos disponibles</div>
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center', 
+        color: '#f39c12',
+        border: '2px solid #f39c12',
+        borderRadius: '5px',
+        margin: '10px'
+      }}>
+        <h3>No Data Available</h3>
+        <p>No k-mer data found for the selected parameters</p>
+      </div>
+    )
   }
 
   // Definir colores

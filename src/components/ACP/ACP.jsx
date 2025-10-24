@@ -7,19 +7,19 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
 
-  // Construir ruta dinámica cuando cambien los parámetros
+  // Build dynamic path when parameters change
   useEffect(() => {
     const updateCsvPath = async () => {
       if (taxon && taxonValue && part) {
         try {
-          // Para kmer, usar archivos acp_hc jerárquicos normales (no hay archivos kmer específicos)
-          const aggregateType = 'acp'
+          // For kmer, use specific kmer files, for structural use hc files
+          const aggregateType = analysisType === 'kmer' ? 'kmer' : 'acp'
           const dynamicPath = await buildACPFilePath(taxon, taxonValue, part, aggregateType, pcX, pcY)
           console.log('Dynamic ACP path for', analysisType, ':', dynamicPath)
           setCurrentCsvPath(dynamicPath)
         } catch (error) {
           console.error('Error building dynamic path:', error)
-          // Usar ruta por defecto si hay error
+          // Use default path if there's an error
           const fallbackPath = analysisType === 'kmer' 
             ? `/data/philogenie/Bacteria/acp_kmer_Bacteria.csv`
             : `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`
@@ -37,21 +37,36 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     if (!currentCsvPath) return
     
     console.log('Loading ACP data from:', currentCsvPath)
-    Papa.parse(currentCsvPath, {
-      header: true,
-      download: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const filtered = results.data.filter(row => row && Object.keys(row).length > 0)
-        console.log('ACP data loaded:', filtered.length, 'rows')
-        setData(filtered)
-      },
-      error: (err) => {
-        console.error("CSV parsing error:", err)
-        setData([])
-      }
-    })
+    
+    // First check if file exists
+    fetch(currentCsvPath, { method: 'HEAD' })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`File not found: ${currentCsvPath}`)
+        }
+        
+        // If file exists, parse it
+        Papa.parse(currentCsvPath, {
+          header: true,
+          download: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            const filtered = results.data.filter(row => row && Object.keys(row).length > 0)
+            console.log('ACP data loaded:', filtered.length, 'rows')
+            setData(filtered)
+          },
+          error: (err) => {
+            console.error("CSV parsing error:", err)
+            console.error("Failed to load file:", currentCsvPath)
+            setData([{ error: `Error parsing file: ${currentCsvPath}` }])
+          }
+        })
+      })
+      .catch(error => {
+        console.error("File not found:", currentCsvPath)
+        setData([{ error: `File not found: ${currentCsvPath}` }])
+      })
   }, [currentCsvPath])
 
   useEffect(() => {
@@ -61,6 +76,26 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   }, [pcX, pcY])
 
   if (data.length === 0) return <p>Loading...</p>
+  
+  // Check for error messages
+  if (data.length === 1 && data[0].error) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center', 
+        color: '#e74c3c',
+        border: '2px solid #e74c3c',
+        borderRadius: '5px',
+        margin: '10px'
+      }}>
+        <h3>Error Loading Data</h3>
+        <p>{data[0].error}</p>
+        <p style={{ fontSize: '0.8em', color: '#666' }}>
+          Analysis Type: {analysisType} | Taxon: {taxonValue} | Part: {part}
+        </p>
+      </div>
+    )
+  }
 
   // Create traces based on groupBy type
   let traces

@@ -37,7 +37,7 @@ const PostprocessingViewer: React.FC<PostprocessingViewerProps> = ({ selectedOrg
         const response = await fetch(csvPath);
         
         if (!response.ok) {
-          throw new Error(`No se pudo cargar el archivo: ${response.status} ${response.statusText}`);
+          throw new Error(`Could not load file ${csvPath}: ${response.status} ${response.statusText}`);
         }
 
         const csvText = await response.text();
@@ -55,21 +55,21 @@ const PostprocessingViewer: React.FC<PostprocessingViewerProps> = ({ selectedOrg
               setData(result.data);
               console.log('Headers encontrados:', csvHeaders);
             } else {
-              setError('El archivo está vacío o no tiene datos válidos');
+              setError(`File ${csvPath} is empty or has no valid data`);
             }
             
             setLoading(false);
           },
           error: (parseError) => {
-            console.error('Error parseando CSV:', parseError);
-            setError(`Error parseando el archivo: ${parseError.message}`);
+            console.error('Error parsing CSV:', parseError);
+            setError(`Error parsing file ${csvPath}: ${parseError.message}`);
             setLoading(false);
           }
         });
 
       } catch (err) {
-        console.error('Error cargando postprocessing:', err);
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        console.error('Error loading postprocessing:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error loading postprocessing data');
         setLoading(false);
       }
     };

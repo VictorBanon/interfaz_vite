@@ -46,11 +46,19 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, name, part }) => {
               return null
             }
 
+            // Check if response is HTML (dev server returns HTML for missing files)
+            const contentType = response.headers.get('content-type')
+            const text = await response.text()
+            
+            if (contentType?.includes('text/html') || text.trim().startsWith('<!DOCTYPE html>') || text.trim().startsWith('<html')) {
+              console.warn(`File not found (HTML response): ${filePath}`)
+              return null
+            }
+
             return new Promise<DatasetInfo | null>((resolve) => {
-              Papa.parse(response.url, {
-                download: true,
+              Papa.parse(text, {
                 header: true,
-                worker: true,
+                worker: false,  // Use text instead of URL
                 complete: (results: any) => {
                   console.log(`${type} data loaded:`, results.data.length, 'rows')
                   
@@ -73,7 +81,7 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, name, part }) => {
               })
             })
           } catch (err) {
-            console.warn(`Error loading ${type} data:`, err)
+            console.warn(`Error loading ${type} data from ${filePath}:`, err)
             return null
           }
         })
@@ -113,15 +121,44 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, name, part }) => {
 
   if (loading) return (
     <div style={{ padding: '20px', textAlign: 'center' }}>
-      <p>Cargando arm plots...</p>
-      <p>Archivos: /data/{id}/analysis/{idReplicon}_hb_arm_*.csv</p>
+      <h3>Loading arm analysis...</h3>
+      {id && idReplicon && (
+        <p>Loading arm plots for {name || id} ({part} analysis)</p>
+      )}
     </div>
   )
 
   if (error) return (
-    <div style={{ padding: '20px', textAlign: 'center' }}>
-      <p>Error: {error}</p>
-      <p>Archivos intentados: /data/{id}/analysis/{idReplicon}_hb_arm_*.csv</p>
+    <div style={{
+      backgroundColor: '#4a1a1a',
+      border: '1px solid #cc4444',
+      borderRadius: '8px',
+      padding: '16px',
+      margin: '16px',
+      color: '#ffffff'
+    }}>
+      <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ Arm Analysis Data Not Found</h3>
+      <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+        {error}
+      </p>
+      {id && idReplicon && (
+        <div style={{ 
+          fontSize: '0.8rem', 
+          color: '#999',
+          marginTop: '10px',
+          padding: '10px',
+          backgroundColor: '#2a2a2a',
+          borderRadius: '4px'
+        }}>
+          <strong>Organism:</strong> {name || id}<br/>
+          <strong>Replicon:</strong> {idReplicon}<br/>
+          <strong>Analysis:</strong> {part}<br/>
+          <strong>Expected files:</strong> {id}/analysis/{idReplicon}_hb_arm_*.csv (all, cod, non)
+        </div>
+      )}
+      <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+        💡 <strong>Tip:</strong> These files contain arm analysis data for structural visualization.
+      </div>
     </div>
   )
 

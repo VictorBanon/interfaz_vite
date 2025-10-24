@@ -18,6 +18,8 @@ const AggregateKmer: React.FC<AggregateProps> = ({
   aggregate, 
   pcX, 
   pcY,
+  id,
+  idReplicon,
   taxon,
   taxonValue, 
   part
@@ -26,6 +28,13 @@ const AggregateKmer: React.FC<AggregateProps> = ({
   const [csvData, setCsvData] = useState<{ pcX: any[]; pcY: any[] }>({ pcX: [], pcY: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Debug: log when props change
+  useEffect(() => {
+    console.log('AggregateKmer props updated:', { 
+      aggregate, pcX, pcY, id, idReplicon, taxon, taxonValue, part 
+    });
+  }, [aggregate, pcX, pcY, id, idReplicon, taxon, taxonValue, part])
 
   useEffect(() => {
     const fetchCsvData = async (filePath: string): Promise<any[]> => {
@@ -33,7 +42,7 @@ const AggregateKmer: React.FC<AggregateProps> = ({
         fetch(filePath)
           .then((res) => {
             if (!res.ok) {
-              throw new Error(`HTTP error! status: ${res.status}`)
+              throw new Error(`File not found: ${filePath} (HTTP ${res.status})`)
             }
             return res.text()
           })
@@ -44,10 +53,11 @@ const AggregateKmer: React.FC<AggregateProps> = ({
               transformHeader: (header) => header.trim()
             });
             
-            console.log("Parsed CSV:", parsed);
+            console.log("Parsed CSV from:", filePath);
             
             if (parsed.errors.length > 0) {
               console.warn("CSV parsing errors:", parsed.errors);
+              throw new Error(`CSV parsing error in ${filePath}: ${parsed.errors[0].message}`)
             }
             
             // Filter out empty rows and validate data
@@ -72,12 +82,12 @@ const AggregateKmer: React.FC<AggregateProps> = ({
     } 
 
     const loadCsvData = async () => {
+      setLoading(true)
+      setError(null)
+      
+      let pcXPath, pcYPath;
+      
       try {
-        setLoading(true)
-        setError(null)
-        
-        let pcXPath, pcYPath;
-        
         // Si tenemos parámetros taxonómicos, usar rutas dinámicas
         if (taxon && taxonValue && part) {
           // Construir rutas independientemente para cada PC
@@ -111,20 +121,22 @@ const AggregateKmer: React.FC<AggregateProps> = ({
         setCsvData({ pcX: pcXData, pcY: pcYData })
       } catch (error) {
         console.error('Error loading CSV data:', error)
-        setError(error instanceof Error ? error.message : 'Unknown error')
+        setError(error instanceof Error ? error.message : `Failed to load files: ${pcXPath} and ${pcYPath}`)
         
         // Fallback a rutas por defecto
         try {
           console.log('Attempting fallback...')
+          const fallbackPcXPath = `/data/philogenie/Bacteria/PC${pcX}_ratio_cod_vs_non_Bacteria.csv`
+          const fallbackPcYPath = `/data/philogenie/Bacteria/PC${pcY}_ratio_cod_vs_non_Bacteria.csv`
           const [pcXData, pcYData] = await Promise.all([
-            fetchCsvData(`/data/philogenie/Bacteria/PC${pcX}_ratio_cod_vs_non_Bacteria.csv`),
-            fetchCsvData(`/data/philogenie/Bacteria/PC${pcY}_ratio_cod_vs_non_Bacteria.csv`)
+            fetchCsvData(fallbackPcXPath),
+            fetchCsvData(fallbackPcYPath)
           ])
           setCsvData({ pcX: pcXData, pcY: pcYData })
           setError(null)
         } catch (fallbackError) {
           console.error('Fallback loading also failed:', fallbackError)
-          setError('Failed to load data from both primary and fallback paths')
+          setError(`Failed to load data from both primary (${pcXPath}, ${pcYPath}) and fallback paths`)
         }
       } finally {
         setLoading(false)
@@ -132,7 +144,7 @@ const AggregateKmer: React.FC<AggregateProps> = ({
     }
 
     loadCsvData()
-  }, [pcX, pcY, taxon, taxonValue, part])
+  }, [pcX, pcY, taxon, taxonValue, part, id, idReplicon])
 
   // Función para crear trazas similar a kmer_plot
   const createKmerTraces = (data: any[], pcLabel: string) => {
@@ -210,19 +222,51 @@ const AggregateKmer: React.FC<AggregateProps> = ({
   }
 
   if (loading) {
-    return <div>Loading k-mer data...</div>
+    return <div style={{ padding: '20px', textAlign: 'center' }}>Loading k-mer data...</div>
   }
 
   if (error) {
-    return <div>Error loading k-mer data: {error}</div>
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center', 
+        color: '#e74c3c',
+        border: '2px solid #e74c3c',
+        borderRadius: '5px',
+        margin: '10px'
+      }}>
+        <h3>Error Loading K-mer Data</h3>
+        <p>{error}</p>
+        <p style={{ fontSize: '0.8em', color: '#666' }}>
+          Taxon: {taxonValue} | Part: {part} | PC{pcX} vs PC{pcY}
+        </p>
+      </div>
+    )
   }
 
   if (aggregate === "PC") {
     const pcXTraces = createKmerTraces(csvData.pcX, `PC${pcX}`)
     const pcYTraces = createKmerTraces(csvData.pcY, `PC${pcY}`)
+    
+    // Add selected point information
+    const selectedInfo = id && idReplicon ? 
+      ` | Selected: ${id}/${idReplicon}` : 
+      ' | No point selected'
 
     if (pcXTraces.length === 0 && pcYTraces.length === 0) {
-      return <div>No valid k-mer data found</div>
+      return (
+        <div style={{ 
+          padding: '20px', 
+          textAlign: 'center', 
+          color: '#f39c12',
+          border: '2px solid #f39c12',
+          borderRadius: '5px',
+          margin: '10px'
+        }}>
+          <h3>No Valid K-mer Data Found</h3>
+          <p>No data available for the selected parameters</p>
+        </div>
+      )
     }
 
     return (
@@ -231,7 +275,7 @@ const AggregateKmer: React.FC<AggregateProps> = ({
           <Plot
             data={pcXTraces}
             layout={{
-              title: { text: `PC${pcX} K-mer Distribution` },
+              title: { text: `PC${pcX} K-mer Distribution${selectedInfo}` },
               autosize: true,
               margin: { l: 50, r: 50, t: 50, b: 50 },
               xaxis: {
@@ -272,7 +316,7 @@ const AggregateKmer: React.FC<AggregateProps> = ({
           <Plot
             data={pcYTraces}
             layout={{
-              title: { text: `PC${pcY} K-mer Distribution` },
+              title: { text: `PC${pcY} K-mer Distribution${selectedInfo}` },
               autosize: true,
               margin: { l: 50, r: 50, t: 50, b: 50 },
               xaxis: {

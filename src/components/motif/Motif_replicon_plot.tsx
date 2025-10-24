@@ -44,6 +44,8 @@ interface State {
   irPositions: number[];
   fastaSequence: string;
   repliconName: string;
+  loading: boolean;
+  error: string | null;
 }
 
 interface MotifRepliconPlotProps {
@@ -67,6 +69,8 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     irPositions: [],
     fastaSequence: '',
     repliconName: '',
+    loading: false,
+    error: null,
   });
 
   const gffInputRef = useRef<HTMLInputElement>(null);
@@ -238,9 +242,7 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     let currentHeader = '';
     let inTargetSequence = false;
 
-    // Extract the replicon type from the target name (e.g., "chromosome" from "chromosome_GCF_...")
-    const repliconType = targetRepliconName.split('_')[0]; // Gets "chromosome", "plasmid", etc.
-    console.log('Looking for replicon type:', repliconType, 'from target:', targetRepliconName);
+    console.log('Looking for specific replicon:', targetRepliconName);
 
     for (const line of lines) {
       if (line.startsWith('>')) {
@@ -249,12 +251,41 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
           break;
         }
         
-        // Check if this header contains the target replicon type
-        currentHeader = line.substring(1).trim().toLowerCase();
-        inTargetSequence = currentHeader.includes(repliconType.toLowerCase());
+        // Check if this header contains the target replicon name
+        currentHeader = line.substring(1).trim();
         
-        console.log('Checking header:', line.substring(0, 50) + '...');
-        console.log('Contains', repliconType + '?', inTargetSequence);
+        // Try multiple matching strategies for the specific replicon
+        const headerLower = currentHeader.toLowerCase();
+        const targetLower = targetRepliconName.toLowerCase();
+        
+        // Strategy 1: Exact match in header
+        inTargetSequence = headerLower.includes(targetLower);
+        
+        // Strategy 2: If no exact match, try matching by ID parts
+        if (!inTargetSequence) {
+          // Extract potential identifiers from target name
+          const targetParts = targetRepliconName.split('_');
+          
+          // Check if any significant part of the target name appears in header
+          for (const part of targetParts) {
+            if (part.length > 3 && headerLower.includes(part.toLowerCase())) {
+              inTargetSequence = true;
+              break;
+            }
+          }
+        }
+        
+        // Strategy 3: For chromosome entries, check for chromosome-specific patterns
+        if (!inTargetSequence && targetRepliconName.includes('chromosome')) {
+          // Look for chromosome patterns in header
+          inTargetSequence = headerLower.includes('chromosome') || 
+                            headerLower.includes('complete genome') ||
+                            (headerLower.includes('complete') && headerLower.includes('sequence'));
+        }
+        
+        console.log('Checking header:', line.substring(0, 80) + '...');
+        console.log('Target:', targetRepliconName);
+        console.log('Match found?', inTargetSequence);
         
         currentSequence = '';
       } else if (inTargetSequence) {
@@ -264,6 +295,7 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     }
 
     console.log('Final sequence length:', currentSequence.length);
+    console.log('Successfully found sequence for:', targetRepliconName);
     return inTargetSequence ? currentSequence : '';
   };
 
@@ -630,17 +662,26 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
 
   // --- Load files when organism is selected ---
   useEffect(() => {
-    if (!selectedOrganism || !selectedOrganism['ID-replicon']) return;
+    if (!selectedOrganism || !selectedOrganism['ID-replicon']) {
+      setState(s => ({ ...s, loading: false, error: null }));
+      return;
+    }
     
     console.log('Organismo seleccionado:', selectedOrganism);
+    
+    setState(s => ({ ...s, loading: true, error: null }));
     
     const loadOrganismFiles = async () => {
       try {
         const genomePath = `/data/${selectedOrganism.ID}`;
         const repliconId = selectedOrganism['ID-replicon'];
+        // Use Replicons_name for FASTA sequence matching, fallback to ID-replicon
+        const repliconName = selectedOrganism['Replicons_name'] || selectedOrganism['ID-replicon'];
         const csvPath = `${genomePath}/analysis/${repliconId}_ir_region.csv`;
         
         console.log('Intentando cargar archivo CSV:', csvPath);
+        console.log('Replicon ID:', repliconId);
+        console.log('Replicon Name:', repliconName);
         
         // Cargar el archivo CSV que contiene features
         try {
@@ -650,6 +691,17 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
           if (csvResponse.ok && csvResponse.status === 200) {
             const csvText = await csvResponse.text();
             console.log('Texto CSV cargado, longitud:', csvText.length);
+            
+            // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+            if (csvText.trim().toLowerCase().startsWith('<!doctype html>') || csvText.trim().toLowerCase().startsWith('<html')) {
+              console.error('Received HTML instead of CSV - file not found');
+              setState(s => ({ 
+                ...s, 
+                loading: false,
+                error: `CSV file not found: ${csvPath}. The server returned HTML instead of CSV data.`
+              }));
+              return;
+            }
             
             // Parsear solo como features
             const { feats, seqids } = parseCSVAsFeatures(csvText);
@@ -662,7 +714,9 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
                 features: feats,
                 seqids: new Set([...s.seqids, ...seqids]),
                 view: seqids.length > 0 ? { ...s.view, seqid: seqids[0] } : s.view,
-                repliconName: repliconId
+                repliconName: repliconId,
+                loading: false,
+                error: null
               };
               
               // Auto-fit to data
@@ -695,28 +749,73 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
                 const fastaText = await fastaResponse.text();
                 console.log('Texto FASTA cargado, longitud:', fastaText.length);
                 
-                // Parse FASTA to get sequence for this replicon
-                const sequence = parseFASTA(fastaText, repliconId);
-                console.log('Secuencia encontrada para', repliconId, '- longitud:', sequence.length);
+                // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+                if (fastaText.trim().toLowerCase().startsWith('<!doctype html>') || fastaText.trim().toLowerCase().startsWith('<html')) {
+                  console.error('Received HTML instead of FASTA - file not found');
+                  setState(s => ({ 
+                    ...s, 
+                    loading: false,
+                    error: `FASTA file not found: ${fastaPath}. The server returned HTML instead of FASTA data.`
+                  }));
+                  return;
+                }
+                
+                // Parse FASTA to get sequence for this replicon using Replicons_name
+                const sequence = parseFASTA(fastaText, repliconName);
+                console.log('Secuencia encontrada para', repliconName, 'con longitud:', sequence.length);
+                
+                // If no sequence found with repliconName, try with repliconId as fallback
+                let finalSequence = sequence;
+                if (!sequence && repliconName !== repliconId) {
+                  console.log('Intentando buscar con ID como fallback:', repliconId);
+                  finalSequence = parseFASTA(fastaText, repliconId);
+                  console.log('Secuencia encontrada con ID fallback:', finalSequence.length);
+                }
                 
                 setState((s) => ({
                   ...s,
-                  fastaSequence: sequence
+                  fastaSequence: finalSequence,
+                  repliconName: repliconName
                 }));
               } else {
-                console.error('No se pudo cargar el archivo FASTA:', fastaResponse.status);
+                console.error(`Could not load FASTA file ${fastaPath}:`, fastaResponse.status);
+                setState(s => ({ 
+                  ...s, 
+                  loading: false,
+                  error: `FASTA file not found: ${fastaPath}. This file is needed for sequence visualization.`
+                }));
               }
             } catch (fastaErr) {
-              console.error('Error cargando archivo FASTA:', fastaErr);
+              console.error(`Error loading FASTA file ${fastaPath}:`, fastaErr);
+              setState(s => ({ 
+                ...s, 
+                loading: false,
+                error: `Error loading FASTA file: ${fastaErr instanceof Error ? fastaErr.message : 'Unknown error'}`
+              }));
             }
           } else {
-            console.error('No se pudo cargar el archivo CSV:', csvResponse.status);
+            console.error(`Could not load CSV file ${csvPath}:`, csvResponse.status);
+            setState(s => ({ 
+              ...s, 
+              loading: false,
+              error: `CSV file not found: ${csvPath}. This file contains the motif analysis data.`
+            }));
           }
         } catch (err) {
-          console.error('Error cargando archivo CSV:', err);
+          console.error(`Error loading CSV file ${csvPath}:`, err);
+          setState(s => ({ 
+            ...s, 
+            loading: false,
+            error: `Error loading CSV file: ${err instanceof Error ? err.message : 'Unknown error'}`
+          }));
         }
       } catch (err) {
-        console.error('Error general:', err);
+        console.error('General error loading motif data:', err);
+        setState(s => ({ 
+          ...s, 
+          loading: false,
+          error: `General error loading motif data: ${err instanceof Error ? err.message : 'Unknown error'}`
+        }));
       }
     };
     
@@ -834,6 +933,61 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
   }, []);
 
   useEffect(() => { renderSVG(); }, [state]);
+
+  // Show loading state
+  if (state.loading) {
+    return (
+      <div className="genome-viewer" style={{ backgroundColor: '#1a1a1a', color: '#ffffff', padding: '20px', textAlign: 'center' }}>
+        <h3>Loading motif data...</h3>
+        <div style={{ 
+          fontSize: '0.9rem', 
+          color: '#4fc3f7',
+          marginTop: '10px'
+        }}>
+          {selectedOrganism && (
+            <>Loading files for <em>{selectedOrganism.genus} {selectedOrganism.species}</em> ({selectedOrganism.ID})</>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (state.error) {
+    return (
+      <div className="genome-viewer" style={{ backgroundColor: '#1a1a1a', color: '#ffffff', padding: '20px' }}>
+        <div style={{
+          backgroundColor: '#4a1a1a',
+          border: '1px solid #cc4444',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '16px'
+        }}>
+          <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ File Not Found</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+            {state.error}
+          </p>
+          {selectedOrganism && (
+            <div style={{ 
+              fontSize: '0.8rem', 
+              color: '#999',
+              marginTop: '10px',
+              padding: '10px',
+              backgroundColor: '#2a2a2a',
+              borderRadius: '4px'
+            }}>
+              <strong>Organism:</strong> <em>{selectedOrganism.genus} {selectedOrganism.species}</em> ({selectedOrganism.ID})<br/>
+              <strong>Replicon:</strong> {selectedOrganism['ID-replicon']}<br/>
+              <strong>Expected path:</strong> /data/{selectedOrganism.ID}/
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: '0.8rem', color: '#999' }}>
+          💡 <strong>Tip:</strong> Make sure the organism files have been processed and are available in the data directory.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="genome-viewer" style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>

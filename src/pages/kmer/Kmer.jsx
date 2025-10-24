@@ -22,6 +22,10 @@ const Kmer = () => {
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
+    console.log('Setting selectedElement to:', {
+      id: point.ID,
+      idReplicon: point['ID-replicon'] || point.idReplicon
+    });
     setSelectedElement({
       id: point.ID,
       idReplicon: point['ID-replicon'] || point.idReplicon
@@ -90,7 +94,7 @@ const Kmer = () => {
               onPointClick={handleACPClick}
               taxon={taxon}
               taxonValue={taxonValue}
-              part={part}
+              part="all" // Kmer doesn't use part parameter
               groupBy={groupBy}
               analysisType="kmer"
             />
@@ -105,7 +109,7 @@ const Kmer = () => {
               idReplicon={selectedElement.idReplicon}
               taxon={taxon}
               taxonValue={taxonValue}
-              part={part}
+              part="all" // Kmer doesn't use part parameter
             />
           </div>
           <div className="card">

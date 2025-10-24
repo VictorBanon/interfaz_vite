@@ -294,22 +294,29 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
       setLoading(true)
       setError(null)
       
+      // Cargar datos del heatmap
+      const filePath = `/data/${id}/analysis/${idReplicon}_hc_${part}.csv`
+      
       try {
-        // Cargar datos del heatmap
-        const filePath = `/data/${id}/analysis/${idReplicon}_hc_${part}.csv`
         console.log('filePath:', filePath)
         console.log('Cargando archivo:', filePath)
         
         const response = await fetch(filePath)
-        if (!response.ok) throw new Error('No se pudo cargar el archivo')
+        if (!response.ok) throw new Error(`File not found: ${filePath} (HTTP ${response.status})`)
+
+        const text = await response.text()
+        
+        // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+        if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
+          throw new Error(`Structural data file not found: ${filePath}. The server returned HTML instead of CSV data.`)
+        }
 
         // Cargar todos los datos en paralelo
         const sequenceDataPromise = loadSequenceData(id, idReplicon, part)
         const aggregatedDataPromise = loadAggregatedData(id, idReplicon, part)
         const simulatedDataPromise = loadSimulatedData(id, idReplicon, part)
         
-        Papa.parse(response.url, {
-          download: true,
+        Papa.parse(text, {
           header: false,
           worker: true,
           fastMode: true,
@@ -337,14 +344,14 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
             setLoading(false)
           },
           error: (error: any) => {
-            console.error('Error al parsear CSV:', error)
-            setError(error.message)
+            console.error('Error parsing CSV:', error)
+            setError(`Error parsing CSV file ${filePath}: ${error.message}`)
             setLoading(false)
           }
         })
       } catch (err) {
-        console.error('Error en fetch:', err)
-        setError(err instanceof Error ? err.message : 'Error desconocido')
+        console.error('Error fetching file:', err)
+        setError(err instanceof Error ? err.message : `Unknown error loading file: ${filePath}`)
         setLoading(false)
       }
     }
@@ -361,16 +368,45 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
   )
 
   if (loading) return (
-    <div>
-      <p>Cargando...</p>
-      <p>Ruta: /data/{id}/analysis/{idReplicon}_hc_{part}.csv</p>
+    <div style={{ padding: '20px', textAlign: 'center' }}>
+      <h3>Loading structural data...</h3>
+      {id && idReplicon && (
+        <p>Loading heatmap for {name || id} ({part} analysis)</p>
+      )}
     </div>
   )
 
   if (error) return (
-    <div>
-      <p>Error: {error}</p>
-      <p>Ruta intentada: /data/{id}/analysis/{idReplicon}_hc_{part}.csv</p>
+    <div style={{
+      backgroundColor: '#4a1a1a',
+      border: '1px solid #cc4444',
+      borderRadius: '8px',
+      padding: '16px',
+      margin: '16px',
+      color: '#ffffff'
+    }}>
+      <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ Structural Data Not Found</h3>
+      <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+        {error}
+      </p>
+      {id && idReplicon && (
+        <div style={{ 
+          fontSize: '0.8rem', 
+          color: '#999',
+          marginTop: '10px',
+          padding: '10px',
+          backgroundColor: '#2a2a2a',
+          borderRadius: '4px'
+        }}>
+          <strong>Organism:</strong> {name || id}<br/>
+          <strong>Replicon:</strong> {idReplicon}<br/>
+          <strong>Analysis:</strong> {part}<br/>
+          <strong>Expected file:</strong> {id}/analysis/{idReplicon}_hc_{part}.csv
+        </div>
+      )}
+      <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+        💡 <strong>Tip:</strong> This file contains structural analysis data for gap/arm visualization.
+      </div>
     </div>
   )
 
@@ -412,7 +448,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
           side: 'bottom'
         },
         yaxis: {
-          title: { text: 'Position' },
+          title: { text: 'Gap' },
           tickfont: { size: 8 }
         },
         hoverlabel: {

@@ -842,13 +842,13 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
               return newState;
             });
           } else {
-            console.error('No se pudo cargar el archivo CSV:', csvResponse.status);
+            console.error(`Could not load CSV file ${csvPath}:`, csvResponse.status);
           }
         } catch (err) {
-          console.error('Error cargando archivo CSV:', err);
+          console.error(`Error loading CSV file ${csvPath}:`, err);
         }
       } catch (err) {
-        console.error('Error general:', err);
+        console.error('General error loading replicon data:', err);
       }
     };
     

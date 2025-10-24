@@ -46,9 +46,16 @@ const GapPlot: React.FC<GapPlotProps> = ({ id, idReplicon, name, part }) => {
               return null
             }
 
+            const text = await response.text()
+            
+            // Check if the response is actually HTML (happens when file doesn't exist in dev server)
+            if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
+              console.warn(`Gap ${type} file not found: ${filePath}. Server returned HTML.`)
+              return null
+            }
+
             return new Promise<DatasetInfo | null>((resolve) => {
-              Papa.parse(response.url, {
-                download: true,
+              Papa.parse(text, {
                 header: true,
                 worker: true,
                 complete: (results: any) => {
@@ -73,7 +80,7 @@ const GapPlot: React.FC<GapPlotProps> = ({ id, idReplicon, name, part }) => {
               })
             })
           } catch (err) {
-            console.warn(`Error loading ${type} data:`, err)
+            console.warn(`Error loading ${type} data from ${filePath}:`, err)
             return null
           }
         })
@@ -113,15 +120,44 @@ const GapPlot: React.FC<GapPlotProps> = ({ id, idReplicon, name, part }) => {
 
   if (loading) return (
     <div style={{ padding: '20px', textAlign: 'center' }}>
-      <p>Cargando gap plots...</p>
-      <p>Archivos: /data/{id}/analysis/{idReplicon}_hb_gap_*.csv</p>
+      <h3>Loading gap analysis...</h3>
+      {id && idReplicon && (
+        <p>Loading gap plots for {name || id} ({part} analysis)</p>
+      )}
     </div>
   )
 
   if (error) return (
-    <div style={{ padding: '20px', textAlign: 'center' }}>
-      <p>Error: {error}</p>
-      <p>Archivos intentados: /data/{id}/analysis/{idReplicon}_hb_gap_*.csv</p>
+    <div style={{
+      backgroundColor: '#4a1a1a',
+      border: '1px solid #cc4444',
+      borderRadius: '8px',
+      padding: '16px',
+      margin: '16px',
+      color: '#ffffff'
+    }}>
+      <h3 style={{ color: '#ff6b6b', margin: '0 0 10px 0' }}>⚠️ Gap Analysis Data Not Found</h3>
+      <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
+        {error}
+      </p>
+      {id && idReplicon && (
+        <div style={{ 
+          fontSize: '0.8rem', 
+          color: '#999',
+          marginTop: '10px',
+          padding: '10px',
+          backgroundColor: '#2a2a2a',
+          borderRadius: '4px'
+        }}>
+          <strong>Organism:</strong> {name || id}<br/>
+          <strong>Replicon:</strong> {idReplicon}<br/>
+          <strong>Analysis:</strong> {part}<br/>
+          <strong>Expected files:</strong> {id}/analysis/{idReplicon}_hb_gap_*.csv (all, cod, non)
+        </div>
+      )}
+      <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '10px' }}>
+        💡 <strong>Tip:</strong> These files contain gap analysis data for structural visualization.
+      </div>
     </div>
   )
 

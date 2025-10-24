@@ -20,7 +20,8 @@ const TaxonomyPlots: React.FC<TaxonomyPlotsProps> = ({ plotType }) => {
       setLoading(true)
       setError(null)
       
-      Papa.parse('/data/taxonomy.csv', {
+      const filePath = '/data/taxonomy.csv'
+      Papa.parse(filePath, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -31,7 +32,7 @@ const TaxonomyPlots: React.FC<TaxonomyPlotsProps> = ({ plotType }) => {
         },
         error: (err) => {
           console.error('Error loading taxonomy data:', err)
-          setError('Error loading taxonomy data')
+          setError(`Error loading taxonomy data from ${filePath}`)
           setLoading(false)
         }
       })

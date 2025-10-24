@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Plot from 'react-plotly.js'
 import Papa from 'papaparse'
-import { buildACPFilePath } from '../../utils/taxonomyUtils'
+import { buildACPFilePath, buildExplainedVarianceFilePath } from '../../utils/taxonomyUtils'
 
 // Declare Plotly for TypeScript
 declare global {
@@ -41,7 +41,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   groupBy = "family"
 }) => { 
 
-  const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any; acpData?: any; pcaTaxonData?: any }>({ pcX: [], pcY: [] })
+  const [csvData, setCsvData] = useState<{ pcX: any; pcY: any; minMaxData?: any; meanMedianData?: any; acpData?: any; pcaTaxonData?: any; varianceExplainedData?: any }>({ pcX: [], pcY: [] })
   const [loading, setLoading] = useState(false)
   const [currentYRange, setCurrentYRange] = useState<[number, number]>([-0.5, 12.5]) // Shared Y range state
 
@@ -61,6 +61,25 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     } catch (error) {
       console.error('Error building hierarchical path, using fallback:', error)
       return `/data/philogenie/Bacteria/hc_${taxonValue || 'Bacteria'}_${part || 'all'}_${type}.csv`
+    }
+  }
+
+  // Helper function to build min-max file paths using hierarchical structure
+  const buildMinMaxPath = async (taxon: string, taxonValue: string, part: string): Promise<string> => {
+    try {
+      // Si tenemos jerarquía taxonómica, intentar usar la estructura jerárquica
+      if (taxon && taxonValue && taxon !== 'superkingdom') {
+        // Usar buildACPFilePath como base pero modificar el nombre del archivo para min_max
+        const acpPath = await buildACPFilePath(taxon, taxonValue, part, 'hc', 1, 2)
+        const basePath = acpPath.substring(0, acpPath.lastIndexOf('/'))
+        return `${basePath}/hc_${taxonValue}_${part}_min_max.csv`
+      } else {
+        // Para superkingdom o casos simples, usar estructura directa
+        return `/data/philogenie/Bacteria/hc_${taxonValue || 'Bacteria'}_${part || 'all'}_min_max.csv`
+      }
+    } catch (error) {
+      console.error('Error building hierarchical min-max path, using fallback:', error)
+      return `/data/philogenie/Bacteria/hc_${taxonValue || 'Bacteria'}_${part || 'all'}_min_max.csv`
     }
   }
 
@@ -101,7 +120,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               row.map((value, j) => {
               const logValue = Math.log10(Math.abs(value) + 1)
               return `Size: ${sizeLabels[j]}<br>` +
-                  `Position: ${positionLabels[i]}<br>` +
+                  `Gap: ${positionLabels[i]}<br>` +
                   `Value: ${value.toFixed(3)}<br>` +
                   `Log10: ${logValue.toFixed(2)}`
               })
@@ -117,13 +136,25 @@ const AggregateStructural: React.FC<AggregateProps> = ({
 
     const fetchMinMaxData = async (filePath: string): Promise<any> => {
       return new Promise((resolve, reject) => {
+        console.log('Fetching Min-Max data from:', filePath)
         Papa.parse(filePath, {
           download: true,
           header: true,
           dynamicTyping: true,
           complete: (result: any) => {
             const data = result.data as any[]
-            console.log('Min-Max Data parsed:', data)
+            console.log('Min-Max raw CSV data:', data)
+            console.log('First few rows:', data.slice(0, 5))
+            
+            if (data.length === 0) {
+              console.error('No data found in Min-Max CSV')
+              reject(new Error('No data found in Min-Max CSV'))
+              return
+            }
+            
+            // Log available columns
+            const columns = Object.keys(data[0] || {})
+            console.log('Available columns:', columns)
             
             // Crear mapas para organizar los datos por arm y gap
             const minData = new Map<string, number>()
@@ -141,11 +172,19 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             }
             
             // Procesar cada fila del CSV
-            data.forEach((row: any) => {
+            data.forEach((row: any, index: number) => {
               const arm = parseInt(row.arm)
               const gap = parseInt(row.gap)
               const count = parseInt(row.count) || 0
               const minMax = row.min_max
+              
+              console.log(`Row ${index}:`, { arm, gap, count, minMax, row })
+              
+              // Validar que tenemos los datos necesarios
+              if (isNaN(arm) || isNaN(gap) || !minMax) {
+                console.warn(`Invalid data in row ${index}:`, row)
+                return
+              }
               
               // Calcular frequency basada en si la columna existe o no
               let frequency: number
@@ -160,10 +199,17 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               
               if (minMax === 'min') {
                 minData.set(key, frequency)
+                console.log(`Added min data: ${key} = ${frequency}`)
               } else if (minMax === 'max') {
                 maxData.set(key, frequency)
+                console.log(`Added max data: ${key} = ${frequency}`)
               }
             })
+            
+            console.log('Min data entries:', minData.size)
+            console.log('Max data entries:', maxData.size)
+            console.log('Min data sample:', Array.from(minData.entries()).slice(0, 5))
+            console.log('Max data sample:', Array.from(maxData.entries()).slice(0, 5))
             
             // Forzar rangos específicos para consistencia en la visualización
             const minArm = 3   // Fijo: empezar desde arm = 3
@@ -175,6 +221,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             
             // Función para crear matriz
             const createMatrix = (dataMap: Map<string, number>) => {
+              console.log('Creating matrix for data map with', dataMap.size, 'entries')
               const matrix: number[][] = []
               const xLabels: string[] = []
               const yLabels: string[] = []
@@ -189,12 +236,22 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 xLabels.push(String(armValue))
               }
               
+              console.log('Matrix dimensions:', { 
+                xLabels: xLabels.length, 
+                yLabels: yLabels.length,
+                xRange: `${minArm}-${maxArm}`,
+                yRange: `${minGap}-${maxGap}`
+              })
+              
               // Crear matriz con dimensiones correctas
               for (let i = 0; i <= maxGap - minGap; i++) {
                 matrix[i] = new Array(maxArm - minArm + 1).fill(0)
               }
               
+              console.log('Empty matrix created with dimensions:', matrix.length, 'x', matrix[0].length)
+              
               // Llenar matriz con datos
+              let filledCells = 0
               dataMap.forEach((frequency, key) => {
                 const [armStr, gapStr] = key.split(',')
                 const armValue = parseInt(armStr)
@@ -208,9 +265,16 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                   if (gapIndex >= 0 && gapIndex < matrix.length && 
                       armIndex >= 0 && armIndex < matrix[0].length) {
                     matrix[gapIndex][armIndex] = frequency
+                    filledCells++
+                    console.log(`Filled cell [${gapIndex}][${armIndex}] (gap=${gap}, arm=${armValue}) with ${frequency}`)
                   }
+                } else {
+                  console.warn(`Value out of range: arm=${armValue}, gap=${gap}`)
                 }
               })
+              
+              console.log(`Matrix filled: ${filledCells} cells out of ${matrix.length * matrix[0].length} total`)
+              console.log('Matrix sample (first 3x3):', matrix.slice(0, 3).map(row => row.slice(0, 3)))
               
               // Crear texto para hover
               const textMatrix = matrix.map((row, i) =>
@@ -225,12 +289,28 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             const minResult = createMatrix(minData)
             const maxResult = createMatrix(maxData)
             
+            console.log('Final Min-Max result:', {
+              min: {
+                hasData: !!minResult.z,
+                dimensions: minResult.z ? `${minResult.z.length}x${minResult.z[0]?.length}` : 'none',
+                nonZeroValues: minResult.z ? minResult.z.flat().filter(v => v > 0).length : 0
+              },
+              max: {
+                hasData: !!maxResult.z,
+                dimensions: maxResult.z ? `${maxResult.z.length}x${maxResult.z[0]?.length}` : 'none',
+                nonZeroValues: maxResult.z ? maxResult.z.flat().filter(v => v > 0).length : 0
+              }
+            })
+            
             resolve({
               min: minResult,
               max: maxResult
             })
           },
-          error: (error: any) => reject(error)
+          error: (error: any) => {
+            console.error('Error parsing Min-Max CSV:', error)
+            reject(error)
+          }
         })
       })
     }
@@ -274,7 +354,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               const textMatrix = transposed.map((row, i) =>
                 row.map((value, j) => {
                   const logValue = value > 0 ? Math.log10(value) : -1
-                  return `Size: ${sizeLabels[j]}<br>Position: ${positionLabels[i]}<br>Value: ${value.toFixed(3)}<br>Log10: ${logValue.toFixed(2)}`
+                  return `Size: ${sizeLabels[j]}<br>Gap: ${positionLabels[i]}<br>Value: ${value.toFixed(3)}<br>Log10: ${logValue.toFixed(2)}`
                 })
               )
               
@@ -370,6 +450,43 @@ const AggregateStructural: React.FC<AggregateProps> = ({
       })
     }
 
+    const fetchVarianceExplainedData = async (taxon: string, taxonValue: string): Promise<any> => {
+      const parts = ['all', 'cod', 'non']
+      const results: any = {}
+      
+      try {
+        for (const part of parts) {
+          const filePath = await buildExplainedVarianceFilePath(taxon, taxonValue, part, 'hc')
+          console.log(`Loading variance explained data from: ${filePath}`)
+          
+          const data = await new Promise((resolve, reject) => {
+            Papa.parse(filePath, {
+              download: true,
+              header: true,
+              dynamicTyping: true,
+              skipEmptyLines: true,
+              complete: (result: any) => {
+                const data = result.data as any[]
+                console.log(`Variance explained data for ${part}:`, data)
+                resolve(data)
+              },
+              error: (error: any) => {
+                console.error(`Error loading variance explained data for ${part}:`, error)
+                reject(error)
+              }
+            })
+          })
+          
+          results[part] = data
+        }
+        
+        return results
+      } catch (error) {
+        console.error('Error fetching variance explained data:', error)
+        throw error
+      }
+    }
+
     const loadCsvData = async () => {
       try {
         setLoading(true)
@@ -379,7 +496,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
           try {
             // Validar parámetros antes de construir ruta dinámica
             if (taxon && taxonValue && part) {
-              const dynamicPath = await buildACPFilePath(taxon, taxonValue, part, 'min_max', pcX, pcY)
+              const dynamicPath = await buildMinMaxPath(taxon, taxonValue, part)
               console.log('Dynamic Min-Max path built:', dynamicPath)
               console.log('Min-Max parameters used:', { taxon, taxonValue, part })
               const minMaxData = await fetchMinMaxData(dynamicPath)
@@ -494,6 +611,43 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               acpData: undefined
             })
           }
+        } else if (aggregate === "Variance explained") {
+          try {
+            // Para Variance explained - cargar datos de varianza explicada para all, cod, non
+            if (taxon && taxonValue) {
+              console.log('Loading Variance explained data for:', { taxon, taxonValue })
+              const varianceExplainedData = await fetchVarianceExplainedData(taxon, taxonValue)
+              console.log('Variance explained data loaded:', varianceExplainedData)
+              setCsvData({ 
+                pcX: [], 
+                pcY: [],
+                varianceExplainedData: varianceExplainedData,
+                minMaxData: undefined,
+                meanMedianData: undefined,
+                acpData: undefined,
+                pcaTaxonData: undefined
+              })
+            } else {
+              throw new Error('Missing required parameters for Variance explained')
+            }
+          } catch (error) {
+            // Fallback para Variance explained
+            console.log('Variance explained path failed, using fallback:', error)
+            const fallbackData = {
+              all: [],
+              cod: [],
+              non: []
+            }
+            setCsvData({ 
+              pcX: [], 
+              pcY: [],
+              varianceExplainedData: fallbackData,
+              minMaxData: undefined,
+              meanMedianData: undefined,
+              acpData: undefined,
+              pcaTaxonData: undefined
+            })
+          }
         } else {
           try {
             // Para PC analysis - usar rutas dinámicas
@@ -560,7 +714,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   }
 
   if (loading) {
-    return <div>Cargando datos...</div>
+    return <div>Loading data...</div>
   }
 
   const DataPlot = {
@@ -571,7 +725,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
 
   if (aggregate === "PC") {
     if (!DataPlot.pcX || !DataPlot.pcY || !DataPlot.pcX.z || !DataPlot.pcY.z) {
-      return <div>No hay datos PC disponibles</div>
+      return <div>No PC data available</div>
     }
 
     return (
@@ -604,7 +758,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 side: 'bottom'
               },
               yaxis: {
-                title: { text: 'Position' },
+                title: { text: 'Gap' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -649,7 +803,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 side: 'bottom'
               },
               yaxis: {
-                title: { text: 'Position' },
+                title: { text: 'Gap' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -674,7 +828,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   if (aggregate === "Min-Max") {
     const minMaxData = csvData.minMaxData
     if (!minMaxData) {
-      return <div>Cargando datos Min-Max...</div>
+      return <div>Loading Min-Max data...</div>
     }
 
     return (
@@ -775,7 +929,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
   if (aggregate === "Mean-Median") {
     const meanMedianData = csvData.meanMedianData
     if (!meanMedianData) {
-      return <div>Cargando datos Mean-Median...</div>
+      return <div>Loading Mean-Median data...</div>
     }
 
     return (
@@ -816,7 +970,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 side: 'bottom'
               },
               yaxis: {
-                title: { text: 'Position' },
+                title: { text: 'Gap' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -869,7 +1023,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
                 side: 'bottom'
               },
               yaxis: {
-                title: { text: 'Position' },
+                title: { text: 'Gap' },
                 tickfont: { size: 8 }
               },
               hoverlabel: {
@@ -895,7 +1049,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     const acpData = csvData.acpData
     
     if (!acpData) {
-      return <div>Cargando datos ACPvsAll...</div>
+      return <div>Loading ACPvsAll data...</div>
     }
 
     // Usar selectedPCs en lugar de detectar automáticamente
@@ -909,7 +1063,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     
     const numPCs = availablePCs.length
     if (numPCs === 0) {
-      return <div>No se encontraron componentes principales seleccionados en los datos</div>
+      return <div>No selected principal components found in the data</div>
     }
 
     console.log('PCs disponibles:', availablePCs)
@@ -1134,13 +1288,13 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     const pcaTaxonData = csvData.pcaTaxonData
     
     if (!pcaTaxonData) {
-      return <div>Cargando datos PCA_Taxon...</div>
+      return <div>Loading PCA_Taxon data...</div>
     }
 
     const { data, pcColumns } = pcaTaxonData
     
     if (!data || data.length === 0) {
-      return <div>No hay datos PCA_Taxon disponibles</div>
+      return <div>No PCA_Taxon data available</div>
     }
 
     // Create heatmap data from PC columns
@@ -1494,10 +1648,111 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     )
   }
 
-  // Para otros tipos de agregación no implementados
+  // Para Variance explained
+  if (aggregate === "Variance explained") {
+    const varianceExplainedData = csvData.varianceExplainedData
+    
+    if (!varianceExplainedData) {
+      return <div>Loading Variance explained data...</div>
+    }
+
+    // Crear trazas para cada tipo de parte (all, cod, non)
+    const traces: any[] = []
+    const colors = {
+      all: '#1f77b4',
+      cod: '#ff7f0e', 
+      non: '#2ca02c'
+    }
+    
+    Object.entries(varianceExplainedData).forEach(([partType, data]: [string, any]) => {
+      if (data && Array.isArray(data) && data.length > 0) {
+        // Extraer PC numbers y cumulative explained variance
+        const pcNumbers = data.map((row: any) => {
+          const pcStr = row.PC || ''
+          return parseInt(pcStr.replace('PC', '')) || 0
+        }).filter((pc: number) => pc > 0)
+        
+        const cumulativeVariance = data.map((row: any) => 
+          (row.cumulative_explained_variance || 0) * 100
+        ).slice(0, pcNumbers.length)
+        
+        traces.push({
+          x: pcNumbers,
+          y: cumulativeVariance,
+          mode: 'lines+markers',
+          type: 'scatter',
+          name: partType.charAt(0).toUpperCase() + partType.slice(1),
+          line: {
+            color: colors[partType as keyof typeof colors] || '#666666',
+            width: 3
+          },
+          marker: {
+            size: 8,
+            color: colors[partType as keyof typeof colors] || '#666666'
+          },
+          hovertemplate: 
+            `<b>${partType.charAt(0).toUpperCase() + partType.slice(1)}</b><br>` +
+            '<b>PC:</b> %{x}<br>' +
+            '<b>Cumulative Variance:</b> %{y:.2f}%<br>' +
+            '<extra></extra>'
+        })
+      }
+    })
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ flex: 1 }}>
+          <Plot
+            data={traces}
+            layout={{
+              title: { text: 'Cumulative Explained Variance by Principal Components' },
+              autosize: true,
+              margin: { l: 60, r: 50, t: 60, b: 60 },
+              xaxis: {
+                title: { text: 'Principal Component' },
+                tickfont: { size: 12 },
+                showgrid: true,
+                gridcolor: '#e0e0e0',
+                type: 'linear',
+                dtick: 1
+              },
+              yaxis: {
+                title: { text: 'Cumulative Explained Variance (%)' },
+                tickfont: { size: 12 },
+                showgrid: true,
+                gridcolor: '#e0e0e0',
+                range: [0, 100]
+              },
+              legend: {
+                x: 0.7,
+                y: 0.3,
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: '#666666',
+                borderwidth: 1
+              },
+              hoverlabel: {
+                bgcolor: 'white',
+                font: { size: 12 }
+              },
+              plot_bgcolor: '#fafafa'
+            }}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+            config={{ 
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // For other non-implemented aggregation types
   return (
     <div>
-      Tipo de agregación no implementado: {aggregate}
+      Aggregation type not implemented: {aggregate}
     </div>
   )
 }
