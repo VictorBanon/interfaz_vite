@@ -51,3 +51,9 @@ declare module '../../components/sidebar/Sidebar' {
   const Component: ComponentType<any>;
   export default Component;
 }
+
+declare module './utils/constants.ts' {
+  export const TAXONOMIC_COLUMNS: readonly string[];
+  export type TaxonomicLevel = string;
+  export const DEFAULT_TAXONOMIC_VALUES: Record<string, string>;
+}

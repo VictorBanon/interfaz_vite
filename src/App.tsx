@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom' 
 import Structural from './pages/structural/Structural.jsx'
-import Kmer from './pages/kmer/Kmer.jsx' 
-import Debrief from './pages/debrief/Debrief.jsx' 
+import Kmer from './pages/kmer/Kmer.jsx'  
 import Taxonomy from './pages/taxonomy/Taxonomy.jsx' 
 import Spatial from './pages/spatial/Spatial.jsx' 
 import Compositional from './pages/compositional/Compositional.jsx'
@@ -12,7 +11,7 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Debrief />} />   
+        <Route path="/" element={<Structural />} />   
         <Route path="/taxonomy" element={<Taxonomy />} />
         <Route path="/structural" element={<Structural />} />
         <Route path="/kmer" element={<Kmer />} />

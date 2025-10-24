@@ -1,4 +1,6 @@
 // Función para leer y procesar el archivo taxonomy.csv
+import { TAXONOMIC_COLUMNS } from './constants.ts'
+
 export const readTaxonomyData = async () => {
   try {
     const response = await fetch('/data/taxonomy.csv')
@@ -9,7 +11,7 @@ export const readTaxonomyData = async () => {
     const headers = lines[0].split(',')
     
     // Encontrar las columnas taxonómicas
-    const taxonomicColumns = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const taxonomicColumns = TAXONOMIC_COLUMNS
     
     // Crear un objeto para almacenar los valores únicos de cada columna
     const taxonomyData = {}
@@ -59,7 +61,7 @@ export const buildACPFilePath = async (taxon, taxonValue, part, aggregate, pcX, 
     const taxonomyData = await readTaxonomyData()
     
     // Definir el orden jerárquico de las columnas taxonómicas
-    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const hierarchyOrder = TAXONOMIC_COLUMNS
     
     // Encontrar el índice del taxón seleccionado
     const taxonIndex = hierarchyOrder.indexOf(taxon)
@@ -146,7 +148,7 @@ export const getTaxonomyHierarchy = async (taxon, taxonValue) => {
     const headers = lines[0].split(',')
     
     // Definir el orden jerárquico completo
-    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const hierarchyOrder = TAXONOMIC_COLUMNS
     
     // Encontrar los índices de las columnas
     const columnIndices = {}
@@ -184,7 +186,7 @@ export const buildExplainedVarianceFilePath = async (taxon, taxonValue, part, an
     const taxonomyData = await readTaxonomyData()
     
     // Definir el orden jerárquico de las columnas taxonómicas
-    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const hierarchyOrder = TAXONOMIC_COLUMNS
     
     // Encontrar el índice del taxón seleccionado
     const taxonIndex = hierarchyOrder.indexOf(taxon)
@@ -338,7 +340,7 @@ export const buildMeanMedianFilePath = async (taxon, taxonValue, part, type) => 
     const taxonomyData = await readTaxonomyData()
     
     // Definir el orden jerárquico de las columnas taxonómicas
-    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const hierarchyOrder = TAXONOMIC_COLUMNS
     
     // Encontrar el índice del taxón seleccionado
     const taxonIndex = hierarchyOrder.indexOf(taxon)

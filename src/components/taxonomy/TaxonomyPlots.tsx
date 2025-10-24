@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Plot from 'react-plotly.js'
 import Papa from 'papaparse'
+import { TAXONOMIC_COLUMNS } from '../../utils/constants.ts'
 
 interface TaxonomyPlotsProps {
   plotType: 'icicle' | 'treemap'
@@ -42,7 +43,7 @@ const TaxonomyPlots: React.FC<TaxonomyPlotsProps> = ({ plotType }) => {
   }, [])
 
   const buildHierarchicalData = () => {
-    const taxonomicLevels = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const taxonomicLevels = TAXONOMIC_COLUMNS
     const hierarchyCount: { [key: string]: number } = {}
     
     // Count occurrences for each hierarchical path

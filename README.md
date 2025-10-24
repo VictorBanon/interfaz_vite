@@ -1,7 +1,3 @@
-## Web
-
-Link web: https://victorbanon.github.io/interfaz_vite/
-
 ## Run project
 
 To run project run in terminal:

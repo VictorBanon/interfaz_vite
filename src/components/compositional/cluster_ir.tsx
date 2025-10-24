@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Papa from 'papaparse'
 import '../table/Table.css'
+import { TAXONOMIC_COLUMNS } from '../../utils/constants.ts'
 
 interface ClusterData {
   string: string
@@ -34,7 +35,7 @@ const buildClusterIRFilePath = async (taxon: string, taxonValue: string) => {
     const headers = lines[0].split(',')
     
     // Definir el orden jerárquico de las columnas taxonómicas
-    const hierarchyOrder = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const hierarchyOrder = TAXONOMIC_COLUMNS
     
     // Encontrar el índice del taxón seleccionado
     const taxonIndex = hierarchyOrder.indexOf(taxon)

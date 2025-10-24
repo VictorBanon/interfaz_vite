@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Plot from 'react-plotly.js'
 import Papa from 'papaparse'
 import { buildACPFilePath, buildExplainedVarianceFilePath } from '../../utils/taxonomyUtils'
+import { TAXONOMIC_COLUMNS } from '../../utils/constants.ts'
 
 // Declare Plotly for TypeScript
 declare global {
@@ -416,7 +417,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             
             // Extract PC columns and taxonomic data
             const pcColumns = Object.keys(filteredData[0] || {}).filter(key => key.startsWith('PC'))
-            const taxonomicColumns = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+            const taxonomicColumns = TAXONOMIC_COLUMNS
             
             // Sort data alphabetically by taxonomic columns (like pandas df.sort_values)
             const sortedData = filteredData.sort((a: any, b: any) => {
@@ -1308,7 +1309,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     )
 
     // Create taxonomic tree visualization data aligned with heatmap rows
-    const taxonomicColumns = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+    const taxonomicColumns = TAXONOMIC_COLUMNS
     
     // Build hierarchical tree structure with positions
     const buildTreeStructure = () => {
