@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Papa from 'papaparse'
 import './tree.css'
+import { TAXONOMIC_COLUMNS } from '../../utils/constants.ts'
 
 interface TaxonomyNode {
   name: string
@@ -186,7 +187,7 @@ const TaxonomicTree: React.FC<TaxonomicTreeProps> = ({ onNodeSelect }) => {
     // Primero construimos el árbol y contamos las ocurrencias
     data.forEach((row) => {
       let currentLevel = tree
-      const levels = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+      const levels = TAXONOMIC_COLUMNS
       
       levels.forEach((level) => {
         const value = row[level]
