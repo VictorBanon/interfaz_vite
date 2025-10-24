@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Papa from 'papaparse'
-import Sidebar from '../../components/sidebar/Sidebar'
+import Sidebar from '../../components/sidebar/Sidebar.jsx'
 import './Errors.css'
 
 interface TaxonomyData {

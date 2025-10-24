@@ -39,3 +39,15 @@ declare module './pages/motif/Motif.jsx' {
   const Component: ComponentType<any>;
   export default Component;
 }
+
+declare module './components/sidebar/Sidebar' {
+  import { ComponentType } from 'react';
+  const Component: ComponentType<any>;
+  export default Component;
+}
+
+declare module '../../components/sidebar/Sidebar' {
+  import { ComponentType } from 'react';
+  const Component: ComponentType<any>;
+  export default Component;
+}

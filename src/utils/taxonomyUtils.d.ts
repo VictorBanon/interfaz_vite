@@ -18,4 +18,10 @@ export declare function buildACPFilePath(
   pcX: number, 
   pcY: number
 ): Promise<string>;
+export declare function buildExplainedVarianceFilePath(
+  taxon: string, 
+  taxonValue: string, 
+  part: string, 
+  analysisType?: string
+): Promise<string>;
 export declare function getTaxonomyHierarchy(taxon: string, taxonValue: string): Promise<TaxonomyHierarchy | null>;
