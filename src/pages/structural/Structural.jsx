@@ -20,13 +20,13 @@ const Structural = () => {
   const [aggregate, setAggregate] = useState("PC") // Añadir estado para aggregate
   const [maxPC, setMaxPC] = useState(6) // Nuevo estado para número máximo de PCs
   const [selectedPCs, setSelectedPCs] = useState([1, 2, 3, 4, 5, 6]) // Estado para PCs seleccionados
-  const [groupBy, setGroupBy] = useState("superkingdom") // Estado para agrupar por
+  const [groupBy, setGroupBy] = useState("Superdomain") // Estado para agrupar por
   const [isCard2Expanded, setIsCard2Expanded] = useState(false) // Estado para expansión de card 2
   const [activeTab, setActiveTab] = useState("gap/arm") // Estado para la pestaña activa en card 3
   
   // Estados para taxonomía
-  const [taxon, setTaxon] = useState("superkingdom")
-  const [taxonValue, setTaxonValue] = useState("Bacteria")
+  const [taxon, setTaxon] = useState("Superdomain")
+  const [taxonValue, setTaxonValue] = useState("Prokaryote")
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
@@ -153,7 +153,7 @@ const Structural = () => {
             <div className="card">
               {/* Ventana 1 */ }
               <ACP 
-                csvPath="/data/philogenie/Bacteria/acp_hc_all_Bacteria.csv" 
+                csvPath="/data/philogenie/Prokaryote/acp_hc_all_Prokaryote.csv" 
                 pcX={pcConfig.x}
                 pcY={pcConfig.y}
                 onPointClick={handleACPClick}

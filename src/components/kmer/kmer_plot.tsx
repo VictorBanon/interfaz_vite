@@ -29,11 +29,46 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
         return res.text()
       })
       .then((csvText) => {
-        const parsed = Papa.parse(csvText, { header: true });
+        // Check if response is HTML (dev server returns HTML for missing files)
+        const trimmedText = csvText.trim()
+        if (trimmedText.startsWith('<!DOCTYPE html>') || 
+            trimmedText.startsWith('<html') || 
+            trimmedText.includes('<title>') ||
+            trimmedText.includes('Cannot GET')) {
+          throw new Error(`File not found (HTML response received): ${filePath}`)
+        }
+        
+        // Additional check: ensure we have some basic CSV structure
+        if (!trimmedText.includes(',') && !trimmedText.includes('Item')) {
+          throw new Error(`Invalid file format (not CSV): ${filePath}`)
+        }
+        
+        const parsed = Papa.parse(csvText, { 
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (header) => header.trim()
+        });
         console.log("Parsed CSV from:", filePath);
         
         if (parsed.errors.length > 0) {
-          throw new Error(`CSV parsing error: ${parsed.errors[0].message}`)
+          console.error("CSV parsing errors:", parsed.errors);
+          throw new Error(`CSV parsing error: ${parsed.errors[0].message}. File may be corrupted or in wrong format.`)
+        }
+        
+        // Validate that we have the expected columns
+        if (parsed.data.length === 0) {
+          throw new Error(`Empty CSV file: ${filePath}`)
+        }
+        
+        const firstRow = parsed.data[0] as any;
+        if (!firstRow || typeof firstRow !== 'object') {
+          throw new Error(`Invalid CSV structure: ${filePath}`)
+        }
+        
+        const requiredColumns = ['Item', 'cod', 'non', 'color'];
+        const missingColumns = requiredColumns.filter(col => !(col in firstRow));
+        if (missingColumns.length > 0) {
+          throw new Error(`Missing required columns in CSV: ${missingColumns.join(', ')}. File: ${filePath}`)
         }
         
         const formatted = parsed.data
@@ -48,7 +83,8 @@ const KmerPlot: React.FC<KmerPlotProps> = ({ id, idReplicon, uploadedData }) => 
       })
       .catch((err) => {
         console.error("Error loading CSV:", err);
-        setError(err.message)
+        const filePath = `/data/${id}/analysis/${idReplicon}_ratio_cod_vs_non_6mer.csv`;
+        setError(`${err.message}. Expected file: ${filePath}`)
       })
       .finally(() => {
         setLoading(false)

@@ -14,10 +14,10 @@ const Kmer = () => {
   const [part, setPart] = useState("all")
   const [pcConfig, setPcConfig] = useState({ x: 1, y: 2 })
   const [aggregate, setAggregate] = useState("PC")
-  const [groupBy, setGroupBy] = useState("superkingdom") // Estado para agrupar por
+  const [groupBy, setGroupBy] = useState("Superdomain") // Estado para agrupar por
   
   // Estados para taxonomía
-  const [taxon, setTaxon] = useState("superkingdom")
+  const [taxon, setTaxon] = useState("Superdomain")
   const [taxonValue, setTaxonValue] = useState("Bacteria")
 
   const handleACPClick = (point) => {

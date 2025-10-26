@@ -3,7 +3,7 @@ import Plot from "react-plotly.js"
 import Papa from "papaparse"
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
 
-const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "superkingdom", analysisType = "hc" }) => {
+const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "Superdomain", analysisType = "hc" }) => {
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
 
@@ -21,8 +21,8 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
           console.error('Error building dynamic path:', error)
           // Use default path if there's an error
           const fallbackPath = analysisType === 'kmer' 
-            ? `/data/philogenie/Bacteria/acp_kmer_Bacteria.csv`
-            : `/data/philogenie/Bacteria/acp_hc_${part}_Bacteria.csv`
+            ? `/data/philogenie/Prokaryote/acp_kmer_Prokaryote.csv`
+            : `/data/philogenie/Prokaryote/acp_hc_${part}_Prokaryote.csv`
           setCurrentCsvPath(csvPath || fallbackPath)
         }
       } else {
@@ -52,6 +52,16 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
           dynamicTyping: true,
           skipEmptyLines: true,
           complete: (results) => {
+            // Check if we got HTML instead of CSV data
+            if (results.data.length > 0 && 
+                results.data[0] && 
+                typeof results.data[0] === 'object' && 
+                Object.keys(results.data[0]).some(key => key.includes('<!DOCTYPE') || key.includes('<html'))) {
+              console.error("Received HTML instead of CSV:", currentCsvPath)
+              setData([{ error: `File not found (HTML response received): ${currentCsvPath}` }])
+              return
+            }
+            
             const filtered = results.data.filter(row => row && Object.keys(row).length > 0)
             console.log('ACP data loaded:', filtered.length, 'rows')
             setData(filtered)

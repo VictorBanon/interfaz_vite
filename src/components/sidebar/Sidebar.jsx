@@ -8,6 +8,7 @@ import {
   getExplainedVarianceRatio,
   getCumulativeExplainedVariance 
 } from '../../utils/taxonomyUtils'
+import { TAXONOMIC_COLUMNS } from '../../utils/constants.ts'
 
 const Sidebar = ({  
   onPartChange, 
@@ -33,7 +34,7 @@ const Sidebar = ({
   const [taxon_value, setTaxon_value] = useState(initialTaxonValue || "Bacteria")
   const [part, setPart] = useState("all")
   const [aggregateState, setAggregateState] = useState(aggregate || "PC")
-  const [groupBy, setGroupBy] = useState(initialGroupBy || "superkingdom")
+  const [groupBy, setGroupBy] = useState(initialGroupBy || "Superdomain")
   // Reemplazar pcNumber por pcX y pcY
   const [pcX, setPcX] = useState(1)
   const [pcY, setPcY] = useState(1)
@@ -257,12 +258,14 @@ const Sidebar = ({
               <label>
                 Group By:
                 <select value={groupBy} onChange={e => handleGroupByChange(e.target.value)}>
-                  <option value="superkingdom">Superkingdom</option>
-                  <option value="class">Class</option>
-                  <option value="order">Order</option>
-                  <option value="family">Family</option>
-                  <option value="genus">Genus</option>
-                  <option value="species">Species</option>
+                  <option value="Superdomain">Superdomain</option>
+                  <option value="Domain">Domain</option>
+                  <option value="Phylum">Phylum</option>
+                  <option value="Class">Class</option>
+                  <option value="Order">Order</option>
+                  <option value="Family">Family</option>
+                  <option value="Genus">Genus</option>
+                  <option value="Species">Species</option>
                   <option value="Replicons_type">Replicons Type</option>
                   <option value="GC">GC</option>
                   <option value="size">Size</option>
@@ -469,12 +472,14 @@ const Sidebar = ({
               <label>
                 Group By:
                 <select value={groupBy} onChange={e => handleGroupByChange(e.target.value)}>
-                  <option value="superkingdom">Superkingdom</option>
-                  <option value="class">Class</option>
-                  <option value="order">Order</option>
-                  <option value="family">Family</option>
-                  <option value="genus">Genus</option>
-                  <option value="species">Species</option>
+                  <option value="Superdomain">Superdomain</option>
+                  <option value="Domain">Domain</option>
+                  <option value="Phylum">Phylum</option>
+                  <option value="Class">Class</option>
+                  <option value="Order">Order</option>
+                  <option value="Family">Family</option>
+                  <option value="Genus">Genus</option>
+                  <option value="Species">Species</option>
                   <option value="Replicons_type">Replicons Type</option>
                   <option value="GC">GC</option>
                   <option value="size">Size</option>

@@ -47,6 +47,20 @@ const AggregateKmer: React.FC<AggregateProps> = ({
             return res.text()
           })
           .then((csvText) => {
+            // Check if response is HTML (dev server returns HTML for missing files)
+            const trimmedText = csvText.trim()
+            if (trimmedText.startsWith('<!DOCTYPE html>') || 
+                trimmedText.startsWith('<html') || 
+                trimmedText.includes('<title>') ||
+                trimmedText.includes('Cannot GET')) {
+              throw new Error(`File not found (HTML response received): ${filePath}`)
+            }
+            
+            // Additional check: ensure we have some basic CSV structure
+            if (!trimmedText.includes(',') && !trimmedText.includes('Item')) {
+              throw new Error(`Invalid file format (not CSV): ${filePath}`)
+            }
+            
             const parsed = Papa.parse(csvText, { 
               header: true,
               skipEmptyLines: true,
@@ -57,7 +71,23 @@ const AggregateKmer: React.FC<AggregateProps> = ({
             
             if (parsed.errors.length > 0) {
               console.warn("CSV parsing errors:", parsed.errors);
-              throw new Error(`CSV parsing error in ${filePath}: ${parsed.errors[0].message}`)
+              throw new Error(`CSV parsing error in ${filePath}: ${parsed.errors[0].message}. File may be corrupted or in wrong format.`)
+            }
+            
+            // Validate that we have the expected columns
+            if (parsed.data.length === 0) {
+              throw new Error(`Empty CSV file: ${filePath}`)
+            }
+            
+            const firstRow = parsed.data[0] as any;
+            if (!firstRow || typeof firstRow !== 'object') {
+              throw new Error(`Invalid CSV structure: ${filePath}`)
+            }
+            
+            const requiredColumns = ['Item', 'cod', 'non'];
+            const missingColumns = requiredColumns.filter(col => !(col in firstRow));
+            if (missingColumns.length > 0) {
+              throw new Error(`Missing required columns in CSV: ${missingColumns.join(', ')}. File: ${filePath}`)
             }
             
             // Filter out empty rows and validate data
@@ -105,8 +135,8 @@ const AggregateKmer: React.FC<AggregateProps> = ({
           pcYPath = pcYPath.replace(`_${part}_`, `_`)
         } else {
           // Rutas por defecto
-          pcXPath = `/data/philogenie/Bacteria/PC${pcX}_ratio_cod_vs_non_Bacteria.csv`
-          pcYPath = `/data/philogenie/Bacteria/PC${pcY}_ratio_cod_vs_non_Bacteria.csv`
+          pcXPath = `/data/philogenie/Prokaryote/PC${pcX}_ratio_cod_vs_non_Prokaryote.csv`
+          pcYPath = `/data/philogenie/Prokaryote/PC${pcY}_ratio_cod_vs_non_Prokaryote.csv`
         }
         
         console.log('Final paths:', { pcXPath, pcYPath })
@@ -126,8 +156,8 @@ const AggregateKmer: React.FC<AggregateProps> = ({
         // Fallback a rutas por defecto
         try {
           console.log('Attempting fallback...')
-          const fallbackPcXPath = `/data/philogenie/Bacteria/PC${pcX}_ratio_cod_vs_non_Bacteria.csv`
-          const fallbackPcYPath = `/data/philogenie/Bacteria/PC${pcY}_ratio_cod_vs_non_Bacteria.csv`
+          const fallbackPcXPath = `/data/philogenie/Prokaryote/PC${pcX}_ratio_cod_vs_non_Prokaryote.csv`
+          const fallbackPcYPath = `/data/philogenie/Prokaryote/PC${pcY}_ratio_cod_vs_non_Prokaryote.csv`
           const [pcXData, pcYData] = await Promise.all([
             fetchCsvData(fallbackPcXPath),
             fetchCsvData(fallbackPcYPath)
