@@ -64,19 +64,15 @@ const LinearRegressionPlot: React.FC<LinearRegressionPlotProps> = ({ selectedOrg
     setError(null);
     
     const repliconId = selectedOrganism['ID-replicon'];
-    console.log('Cargando datos para organismo:', selectedOrganism.ID, 'con ID-replicon:', repliconId);
     
     // Construir la ruta del archivo usando ID-replicon directamente (sin "chromosome_" extra)
     const csvPath = `/data/${selectedOrganism.ID}/analysis/${repliconId}_ir_region.csv`;
-    console.log('Ruta del archivo:', csvPath);
 
     Papa.parse<RegionData>(csvPath, {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
-        console.log('Datos cargados para', repliconId, ':', res.data.length);
-        
         // Filtrar filas con datos válidos
         const validData = res.data.filter(d => 
           d && 
@@ -92,8 +88,6 @@ const LinearRegressionPlot: React.FC<LinearRegressionPlotProps> = ({ selectedOrg
           !isNaN(Number(d.length))
         );
         
-        console.log('Datos válidos después del filtrado:', validData.length);
-        
         if (validData.length === 0) {
           setError(`No valid data found for ${repliconId}`);
           setLoading(false);
@@ -105,9 +99,6 @@ const LinearRegressionPlot: React.FC<LinearRegressionPlotProps> = ({ selectedOrg
         // Separar genes e intergenes - con verificación adicional
         const genes = validData.filter(d => d.id && d.id.startsWith('gene-'));
         const intergens = validData.filter(d => d.id && d.id.startsWith('intergen'));
-        
-        console.log('Genes encontrados:', genes.length);
-        console.log('Intergenes encontrados:', intergens.length);
         
         setGeneData(genes);
         setIntergenData(intergens);

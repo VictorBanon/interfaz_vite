@@ -97,9 +97,6 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     const seqids = new Set<string>();
     const lines = text.split(/\r?\n/);
     
-    console.log('parseGFF debug:');
-    console.log('- Total líneas:', lines.length);
-    
     let validLines = 0;
     let commentLines = 0;
     let shortLines = 0;
@@ -166,9 +163,6 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
     const seqids = new Set<string>();
     const lines = text.split(/\r?\n/);
     
-    console.log('parseCSVAsFeatures debug:');
-    console.log('- Total líneas:', lines.length);
-    
     let headers: string[] = [];
     let validLines = 0;
     
@@ -178,7 +172,6 @@ const MotifRepliconPlot: React.FC<MotifRepliconPlotProps> = ({ selectedOrganism,
       
       if (i === 0) {
         headers = line.split(',');
-        console.log('- Headers:', headers);
         continue;
       }
       

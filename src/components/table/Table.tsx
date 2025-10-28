@@ -246,13 +246,11 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
 
   const handleColumnClick = (event: React.MouseEvent, column: string) => {
     event.stopPropagation()
-    console.log('Column clicked:', column)
     const rect = event.currentTarget.getBoundingClientRect()
     const newPopup = {
       column: popup.column === column ? null : column,
       position: { x: rect.left, y: rect.bottom }
     }
-    console.log('Setting popup:', newPopup)
     setPopup(newPopup)
   }
 
@@ -357,7 +355,6 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
               <tr 
                 key={index} 
                 onClick={() => {
-                  console.log('Fila seleccionada:', row)
                   onRowClick(row)
                 }}
                 style={{ cursor: 'pointer' }}

@@ -132,7 +132,6 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
       if (taxon && taxonValue) {
         try {
           const dynamicPath = await buildClusterIRFilePath(taxon, taxonValue)
-          console.log('Dynamic Cluster IR path:', dynamicPath)
           setCurrentCsvPath(dynamicPath)
         } catch (error) {
           console.error('Error building dynamic path:', error)
@@ -154,8 +153,6 @@ const ClusterIR: React.FC<ClusterIRProps> = ({ taxon = 'superkingdom', taxonValu
       setError(null)
       
       try {
-        console.log('Loading Cluster IR data from:', currentCsvPath)
-        
         // Leer el archivo manualmente primero
         const response = await fetch(currentCsvPath)
         if (!response.ok) {

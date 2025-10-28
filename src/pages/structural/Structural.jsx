@@ -7,6 +7,7 @@ import AggregateStructural from '../../components/structural/agregate_structural
 import GapPlot from '../../components/structural/gap_plot'
 import ArmPlot from '../../components/structural/arm_plot'
 import TotalPlot from '../../components/structural/total_plot'
+import PercentualHeatmap from '../../components/structural/percentual_heatmap'
 
 import './Structural.css' 
 
@@ -188,7 +189,7 @@ const Structural = () => {
             <div className="card">  
               <div className="card-tabs">
                 <div className="tabs-header">
-                  {["gap/arm", "gap", "arm", "total"].map((tab) => (
+                  {["gap/arm", "gap", "arm", "total", "percentual"].map((tab) => (
                     <button
                       key={tab}
                       className={`tab-button ${activeTab === tab ? "active" : ""}`}
@@ -210,6 +211,9 @@ const Structural = () => {
                   )}
                   {activeTab === "total" && (
                     <TotalPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} part={part} />
+                  )}
+                  {activeTab === "percentual" && (
+                    <PercentualHeatmap id={selectedElement.id} idReplicon={selectedElement.idReplicon} name={selectedElement.name} part={part} />
                   )}
                 </div>
               </div>

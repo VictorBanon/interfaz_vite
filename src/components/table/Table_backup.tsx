@@ -206,7 +206,6 @@ const CSVWindow: React.FC<CSVWindowProps> = ({ onRowClick }) => {
               <tr 
                 key={index} 
                 onClick={() => {
-                  console.log('Fila seleccionada:', row)
                   onRowClick(row)
                 }}
                 style={{ cursor: 'pointer' }}

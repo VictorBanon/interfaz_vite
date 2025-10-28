@@ -246,7 +246,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
         const simulatedValues = simulatedMap.get(aggregatedKey)
         
         let hoverText = `Size: ${sizeLabels[j]}<br>` +
-                       `Position: ${positionLabels[i]}<br>` +
+                       `Gap: ${positionLabels[i]}<br>` +
                        `Value: ${value.toFixed(3)}<br>` +
                        `Log10: ${logValue.toFixed(2)}`
         
@@ -275,8 +275,6 @@ const Heatmap: React.FC<HeatmapProps> = ({ id, idReplicon, name, part }) => {
         return hoverText
       })
     )
-
-    console.log('Processed Data:', { logMatrix, transposed, sizeLabels, positionLabels, hoverMatrix })
 
     return {
       logData: logMatrix,

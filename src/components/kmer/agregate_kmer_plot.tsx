@@ -101,7 +101,6 @@ const AggregateKmer: React.FC<AggregateProps> = ({
               }))
               .filter(row => !isNaN(row.cod) && !isNaN(row.non)); // Remove invalid numeric data
             
-            console.log("Formatted data:", formatted.slice(0, 5)); // Log first 5 rows
             resolve(formatted);
           })
           .catch((err) => {

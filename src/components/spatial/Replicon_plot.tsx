@@ -99,9 +99,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     const seqids = new Set<string>();
     const lines = text.split(/\r?\n/);
     
-    console.log('parseGFF debug:');
-    console.log('- Total líneas:', lines.length);
-    
     let validLines = 0;
     let commentLines = 0;
     let shortLines = 0;
@@ -185,9 +182,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     const lines = text.split(/\r?\n/);
     let headers: string[] = [];
     
-    console.log('parseCountsCSV debug:');
-    console.log('- Total líneas:', lines.length);
-    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line.trim()) continue;
@@ -195,7 +189,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       if (i === 0) {
         // Primera línea: headers
         headers = line.split(',');
-        console.log('- Headers encontrados:', headers);
         continue;
       }
       
@@ -259,9 +252,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     const seqids = new Set<string>();
     const lines = text.split(/\r?\n/);
     
-    console.log('parseCSVAsFeatures debug:');
-    console.log('- Total líneas:', lines.length);
-    
     let headers: string[] = [];
     let validLines = 0;
     
@@ -271,7 +261,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       
       if (i === 0) {
         headers = line.split(',');
-        console.log('- Headers:', headers);
         continue;
       }
       
@@ -334,9 +323,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
     const lines = text.split(/\r?\n/);
     let headers: string[] = [];
     
-    console.log('parseHistogramCSV debug:');
-    console.log('- Total líneas:', lines.length);
-    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line.trim()) continue;
@@ -344,7 +330,6 @@ const RepliconPlot: React.FC<RepliconPlotProps> = ({ selectedOrganism }) => {
       if (i === 0) {
         // Primera línea: headers
         headers = line.split(',');
-        console.log('- Headers encontrados:', headers);
         continue;
       }
       

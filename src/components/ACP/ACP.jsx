@@ -127,8 +127,8 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
       hovertemplate: 
         '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
         '<b>ID:</b> %{customdata.ID}<br>' +
-        '<b>PC' + pcX + ':</b> %{x:.3f}<br>' +
-        '<b>PC' + pcY + ':</b> %{y:.3f}<br>' +
+        '<b>PC' + pcX + ' (X-axis):</b> %{x:.3f}<br>' +
+        '<b>PC' + pcY + ' (Y-axis):</b> %{y:.3f}<br>' +
         '<b>name:</b> %{customdata.fullname}<br>' +
         '<b>' + groupBy + ':</b> %{customdata.' + groupBy + '}<br>' +
         '<extra></extra>',
@@ -191,8 +191,8 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
       hovertemplate: 
         '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
         '<b>ID:</b> %{customdata.ID}<br>' +
-        '<b>PC' + pcX + ':</b> %{x:.3f}<br>' +
-        '<b>PC' + pcY + ':</b> %{y:.3f}<br>' +
+        '<b>PC' + pcX + ' (X-axis):</b> %{x:.3f}<br>' +
+        '<b>PC' + pcY + ' (Y-axis):</b> %{y:.3f}<br>' +
         '<b>name:</b> %{customdata.fullname} <br>' +
         '<extra></extra>',
       mode: 'markers',
@@ -219,6 +219,11 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     return baseTitle
   }
 
+  // Función para obtener etiquetas de ejes más descriptivas
+  const getAxisLabel = (pcNumber) => {
+    return `PC${pcNumber} (Principal Component ${pcNumber})`
+  }
+
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Plot
@@ -231,18 +236,24 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
             xanchor: 'center'
           },
           xaxis: { 
-            title: `PC${pcX}`,
+            title: {
+              text: getAxisLabel(pcX),
+              font: { size: 10 }
+            },
             titlefont: { size: 8 },
             tickfont: { size: 7 }
           },
           yaxis: { 
-            title: `PC${pcY}`,
+            title: {
+              text: getAxisLabel(pcY),
+              font: { size: 10 }
+            },
             titlefont: { size: 8 },
             tickfont: { size: 7 }
           },
           hovermode: "closest",
           autosize: true,
-          margin: { l: 20, r: 100, t: 50, b: 20 }, // Increased top margin for title
+          margin: { l: 50, r: 100, t: 50, b: 50 }, // Increased margins for better axis labels
           height: null,
           width: null,
           showlegend: true // Forzar mostrar leyenda siempre

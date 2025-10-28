@@ -174,6 +174,32 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, name, part }) => {
   const xColumn = availableColumns[0]
   const yColumn = availableColumns[1]
 
+  // Función para obtener nombres de display mejorados
+  const getDisplayName = (columnName: string) => {
+    if (!columnName) return columnName
+    
+    const lowerName = columnName.toLowerCase().trim()
+    
+    // Mapeo específico para términos científicos - más agresivo
+    if (lowerName === 'position' || lowerName === 'pos' || lowerName.endsWith('position') || lowerName.includes('pos')) {
+      return 'gap'
+    }
+    
+    if (lowerName === 'size' || lowerName === 'length' || lowerName.includes('size') || lowerName.includes('length')) {
+      return 'arm size'
+    }
+    
+    if (lowerName.includes('start')) {
+      return 'gap start'
+    }
+    
+    if (lowerName.includes('end')) {
+      return 'gap end'
+    }
+    
+    return columnName
+  }
+
   // Crear traces para cada dataset
   const traces = datasets.map((dataset) => {
     const xValues = dataset.data.map((row: any) => parseFloat(row[xColumn])).filter((val: any) => !isNaN(val))
@@ -183,10 +209,10 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, name, part }) => {
       const info = Object.keys(row)
         .filter(key => key !== xColumn && key !== yColumn)
         .slice(0, 3) // Mostrar solo las primeras 3 columnas adicionales
-        .map(key => `${key}: ${row[key]}`)
+        .map(key => `${getDisplayName(key)}: ${row[key]}`)
         .join('<br>')
       
-      return `${xColumn}: ${row[xColumn]}<br>${yColumn}: ${row[yColumn]}<br>Dataset: ${dataset.name}<br>${info}`
+      return `${getDisplayName(xColumn)}: ${row[xColumn]}<br>${getDisplayName(yColumn)}: ${row[yColumn]}<br>Dataset: ${dataset.name}<br>${info}`
     })
 
     return {
@@ -211,11 +237,11 @@ const ArmPlot: React.FC<ArmPlotProps> = ({ id, idReplicon, name, part }) => {
         autosize: true,
         margin: { l: 50, r: 20, t: 40, b: 50 },
         xaxis: {
-          title: { text: xColumn },
+          title: { text: getDisplayName(xColumn) },
           tickfont: { size: 10 }
         },
         yaxis: {
-          title: { text: yColumn },
+          title: { text: getDisplayName(yColumn) },
           tickfont: { size: 10 }
         },
         hoverlabel: {

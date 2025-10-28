@@ -50,6 +50,10 @@ const Errors = () => {
   const [processedFiles, setProcessedFiles] = useState(0)
   const [totalFiles, setTotalFiles] = useState(0)
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 })
+  const [fileIndex, setFileIndex] = useState<Set<string>>(new Set())
+  const [indexLoaded, setIndexLoaded] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [analysisReady, setAnalysisReady] = useState(false)
   
   // UI state for large datasets
   const [currentPage, setCurrentPage] = useState(1)
@@ -67,34 +71,175 @@ const Errors = () => {
   // Define file patterns to check
   const filePatterns = [
     // Structural analysis files
-    { type: 'Structural (all)', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_hc_all.csv` },
-    { type: 'Structural (3p)', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_hc_3p.csv` },
-    { type: 'Structural (5p)', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_hc_5p.csv` },
+    { type: 'Structural (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hc_all.csv` },
+    { type: 'Structural (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hc_cod.csv` },
+    { type: 'Structural (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hc_non.csv` },
+    
+    // Arm analysis files
+    { type: 'Arm Analysis (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hb_arm_all.csv` },
+    { type: 'Arm Analysis (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hb_arm_cod.csv` },
+    { type: 'Arm Analysis (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hb_arm_non.csv` },
+    
+    // Gap analysis files
+    { type: 'Gap Analysis (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hb_gap_all.csv` },
+    { type: 'Gap Analysis (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hb_gap_cod.csv` },
+    { type: 'Gap Analysis (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_hb_gap_non.csv` },
+    
+    // Ha analysis files
+    { type: 'Ha Analysis (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ha_all.csv` },
+    { type: 'Ha Analysis (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ha_cod.csv` },
+    { type: 'Ha Analysis (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ha_non.csv` },
     
     // K-mer analysis files
-    { type: 'K-mer (6mer)', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_ratio_cod_vs_non_6mer.csv` },
+    { type: 'K-mer Coding', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_cod_6mer.csv` },
+    { type: 'K-mer Non-coding', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_non_6mer.csv` },
+    { type: 'K-mer Ratio', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ratio_cod_vs_non_6mer.csv` },
+    { type: 'K-mer Nucleotide Ratio (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_cod_nucleotide_ratio_6mer.csv` },
+    { type: 'K-mer Nucleotide Ratio (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_non_nucleotide_ratio_6mer.csv` },
     
     // Motif analysis files
-    { type: 'Motif (IR)', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_rich_ir.csv` },
-    { type: 'Postprocessing', pattern: (id: string, idReplicon: string) => `/data/${id}/postprocessing/${idReplicon}_postprocessing.csv` },
+    { type: 'Motif (IR)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_rich_ir.csv` },
+    { type: 'IR Histogram', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ir_histogram.csv` },
+    { type: 'IR Neighborhood', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ir_neighborhood.csv` },
+    { type: 'IR Region', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_ir_region.csv` },
+    
+    // Structural observed and simulated data
+    { type: 'Observed Top10 (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_all_obs_top10_per_gap_size.csv` },
+    { type: 'Observed Top10 (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_cod_obs_top10_per_gap_size.csv` },
+    { type: 'Observed Top10 (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_non_obs_top10_per_gap_size.csv` },
+    { type: 'Observed Matrix (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_all_obs_top10_per_gap_size_matrix.csv` },
+    { type: 'Observed Matrix (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_cod_obs_top10_per_gap_size_matrix.csv` },
+    { type: 'Observed Matrix (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_non_obs_top10_per_gap_size_matrix.csv` },
+    { type: 'Aggregated Observed (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_all_result_obs_aggregated.csv` },
+    { type: 'Aggregated Observed (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_cod_result_obs_aggregated.csv` },
+    { type: 'Aggregated Observed (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_non_result_obs_aggregated.csv` },
+    { type: 'Aggregated Simulated (all)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_all_result_sim_aggregated.csv` },
+    { type: 'Aggregated Simulated (coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_cod_result_sim_aggregated.csv` },
+    { type: 'Aggregated Simulated (non-coding)', pattern: (id: string, idReplicon: string) => `./data/${id}/analysis/${idReplicon}_non_result_sim_aggregated.csv` },
     
     // Genomic files
-    { type: 'Genomic FASTA', pattern: (id: string, _idReplicon: string) => `/data/${id}/preprocessing/${id}_genomic.fna` },
+    { type: 'Genomic FASTA', pattern: (id: string, _idReplicon: string) => `./data/${id}/preprocessing/${id}_genomic.fna` },
     
-    // Spatial analysis files
-    { type: 'Spatial', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_region_analysis.csv` },
-    
-    // Additional potential files
-    { type: 'Sequence Data', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_sequence_all.csv` },
-    { type: 'Aggregated Data', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_aggregated_all.csv` },
-    { type: 'Simulated Data', pattern: (id: string, idReplicon: string) => `/data/${id}/analysis/${idReplicon}_simulated_all.csv` },
+    // Postprocessing files
+    { type: 'Postprocessing', pattern: (id: string, idReplicon: string) => `./data/${id}/postprocessing/${idReplicon}_postprocessing.csv` },
   ]
 
   useEffect(() => {
-    loadTaxonomyData()
-    // Load saved results from localStorage if available
-    loadSavedResults()
+    // Initialize immediately with cached data if available
+    const initializeApp = async () => {
+      setInitialLoading(true)
+      
+      // Try to load recent cached results first for instant UI
+      const hasRecentCache = loadSavedResults()
+      
+      // Load core data in parallel
+      const taxonomyPromise = loadTaxonomyData()
+      const indexPromise = loadFileIndex()
+      
+      // Wait for both to complete
+      await Promise.all([taxonomyPromise, indexPromise])
+      
+      setInitialLoading(false)
+      
+      // If we have recent cache, we're ready
+      if (hasRecentCache) {
+        console.log('✅ Using recent cached data - ready!')
+      } else {
+        setAnalysisReady(true) // Will trigger fresh analysis
+      }
+    }
+    
+    initializeApp()
   }, [])
+
+  // Start analysis when both index and taxonomy data are ready (non-blocking)
+  useEffect(() => {
+    if (indexLoaded && taxonomyData.length > 0 && analysisReady) {
+      // Only run analysis if we don't have recent results
+      const hasRecentResults = fileResults.length > 0 && lastAnalysis && 
+        (Date.now() - lastAnalysis.getTime()) < (60 * 60 * 1000) // 1 hour
+      
+      if (!hasRecentResults) {
+        // Defer analysis slightly to allow UI to render first
+        setTimeout(() => {
+          console.log('🔄 Starting fresh analysis...')
+          checkFiles(taxonomyData)
+        }, 200)
+      } else {
+        console.log('✅ Using cached results, analysis skipped')
+      }
+    }
+  }, [indexLoaded, taxonomyData, analysisReady])
+
+  // Lightweight dynamic index generator (fallback only)
+  const generateDynamicIndexLite = async (): Promise<Set<string>> => {
+    if (taxonomyData.length === 0) return new Set()
+    
+    console.log('🔄 Generating lightweight dynamic index...')
+    setCurrentCheck('Scanning for files...')
+    
+    const foundFiles = new Set<string>()
+    const organismIds = [...new Set(taxonomyData.map(row => row.ID).filter(Boolean))]
+    
+    // Quick pattern-based check for essential files only
+    const essentialPatterns = [
+      '_hc_all.csv', '_hc_cod.csv', '_hc_non.csv',
+      '_genomic.fna', '_postprocessing.csv'
+    ]
+    
+    let checked = 0
+    const total = organismIds.length * essentialPatterns.length
+    
+    for (const orgId of organismIds) {
+      for (const pattern of essentialPatterns) {
+        const possiblePaths = [
+          `data/${orgId}/analysis/chromosome_${orgId}${pattern}`,
+          `data/${orgId}/analysis/plasmid_unnamed_${orgId}${pattern}`,
+          `data/${orgId}/preprocessing/${orgId}${pattern}`,
+          `data/${orgId}/postprocessing/chromosome_${orgId}${pattern}`
+        ]
+        
+        for (const path of possiblePaths) {
+          try {
+            const response = await fetch(`./${path}`, { method: 'HEAD' })
+            if (response.ok) foundFiles.add(path)
+          } catch { /* ignore */ }
+        }
+        
+        checked++
+        if (checked % 10 === 0) {
+          setCurrentCheck(`Scanning... ${Math.round((checked/total)*100)}%`)
+        }
+      }
+    }
+    
+    setCurrentCheck('')
+    console.log(`✅ Generated lite index: ${foundFiles.size} files`)
+    return foundFiles
+  }
+
+  // Load file index to avoid individual HTTP requests
+  const loadFileIndex = async () => {
+    try {
+      const response = await fetch('./file_index.txt')
+      if (response.ok) {
+        const text = await response.text()
+        const files = text.trim().split('\n').filter(line => line.length > 0)
+        setFileIndex(new Set(files))
+        setIndexLoaded(true)
+        console.log(`✅ Loaded static index with ${files.length} files`)
+        return true
+      } else {
+        console.warn('⚠️ Static index not found, will use dynamic generation when needed')
+        setIndexLoaded(true)
+        return false
+      }
+    } catch (error) {
+      console.warn('⚠️ Error loading static index:', error)
+      setIndexLoaded(true)
+      return false
+    }
+  }
 
   // Save results to localStorage for large datasets
   const saveResultsToLocal = (results: FileCheckResult[]) => {
@@ -119,15 +264,58 @@ const Errors = () => {
         const savedDate = new Date(parsed.timestamp)
         const hoursSinceLastAnalysis = (Date.now() - savedDate.getTime()) / (1000 * 60 * 60)
         
-        // Only load if less than 24 hours old
-        if (hoursSinceLastAnalysis < 24 && parsed.results) {
+        // Load recent cache for instant UI (within 1 hour)
+        if (hoursSinceLastAnalysis < 1 && parsed.results) {
           setFileResults(parsed.results)
           setLastAnalysis(savedDate)
-          console.log(`Loaded ${parsed.results.length} cached results from ${savedDate.toLocaleString()}`)
+          setAnalysisReady(true) // Mark as ready since we have data
+          console.log(`⚡ Loaded ${parsed.results.length} cached results (${hoursSinceLastAnalysis.toFixed(1)}h old)`)
+          return true
+        }
+        // Keep older cache but don't mark as ready (will re-analyze)
+        else if (hoursSinceLastAnalysis < 24 && parsed.results) {
+          setFileResults(parsed.results)
+          setLastAnalysis(savedDate)
+          console.log(`📋 Loaded ${parsed.results.length} cached results (${hoursSinceLastAnalysis.toFixed(1)}h old) - will refresh`)
+          return false
         }
       }
+      return false
     } catch (error) {
       console.warn('Could not load saved results:', error)
+      return false
+    }
+  }
+
+  // Clear cached results and force fresh analysis
+  const clearCacheAndReload = () => {
+    localStorage.removeItem('fileAnalysisResults')
+    setFileResults([])
+    setLastAnalysis(null)
+    if (taxonomyData.length > 0 && indexLoaded) {
+      checkFiles(taxonomyData)
+    }
+  }
+
+  // Refresh file index (useful when files are added/removed)
+  const refreshFileIndex = async () => {
+    setLoading(true)
+    setCurrentCheck('Generating fresh file index...')
+    
+    try {
+      // Use the lite generator for faster refresh
+      const dynamicIndex = await generateDynamicIndexLite()
+      setFileIndex(dynamicIndex)
+      
+      // Restart analysis with new index
+      if (taxonomyData.length > 0) {
+        checkFiles(taxonomyData)
+      }
+    } catch (error) {
+      console.error('Error refreshing file index:', error)
+      setError('Failed to refresh file index')
+    } finally {
+      setCurrentCheck('')
     }
   }
 
@@ -135,32 +323,38 @@ const Errors = () => {
 
   const loadTaxonomyData = async () => {
     try {
-      setLoading(true)
       setError(null)
       
-      const response = await fetch('/data/taxonomy.csv')
+      const response = await fetch('./data/taxonomy.csv')
       if (!response.ok) {
         throw new Error(`Could not load taxonomy file: ${response.status}`)
       }
       
       const csvText = await response.text()
       
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (result) => {
-          const data = result.data as TaxonomyData[]
-          setTaxonomyData(data)
-          checkFiles(data)
-        },
-        error: (err: any) => {
-          setError(`Error parsing taxonomy file: ${err.message}`)
-          setLoading(false)
-        }
+      return new Promise<void>((resolve, reject) => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (result) => {
+            const data = result.data as TaxonomyData[]
+            setTaxonomyData(data)
+            console.log(`✅ Loaded ${data.length} taxonomy entries`)
+            resolve()
+          },
+          error: (err: any) => {
+            const errorMsg = `Error parsing taxonomy file: ${err.message}`
+            setError(errorMsg)
+            console.error(errorMsg)
+            reject(new Error(errorMsg))
+          }
+        })
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error loading taxonomy data')
-      setLoading(false)
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error loading taxonomy data'
+      setError(errorMsg)
+      console.error(errorMsg)
+      throw err
     }
   }
 
@@ -258,42 +452,71 @@ const Errors = () => {
   }): Promise<FileCheckResult> => {
     let exists = false
     
-    try {
-      const response = await fetch(task.filePath)
+    // Use file index if available for much faster checking
+    if (indexLoaded && fileIndex.size > 0) {
+      // Convert the path to match the index format
+      const indexPath = task.filePath.replace(/^\.\//, '')
+      exists = fileIndex.has(indexPath)
       
-      if (response.status === 200) {
-        try {
-          const content = await response.text()
-          
-          // Check if it's actually an HTML error page
-          const isHtmlError = content.includes('<!DOCTYPE html>') || 
-                            content.includes('<html') || 
-                            content.includes('404') || 
-                            content.includes('Not Found') ||
-                            content.includes('Cannot resolve') ||
-                            content.includes('File not found')
-          
-          if (isHtmlError) {
-            exists = false
-          } else {
-            exists = !!(content && content.trim().length > 0)
+      // Debug logging for problematic files
+      if (!exists && (task.type.includes('Structural') || task.type.includes('Genomic') || task.type.includes('Postprocessing'))) {
+        console.log('File not found in index:', {
+          originalPath: task.filePath,
+          indexPath: indexPath,
+          type: task.type,
+          id: task.id,
+          idReplicon: task.idReplicon,
+          indexHasFile: fileIndex.has(indexPath),
+          indexSize: fileIndex.size
+        })
+        
+        // Show similar files in index for debugging
+        const similarFiles = Array.from(fileIndex).filter(f => 
+          f.includes(task.id) && f.includes(task.type.toLowerCase())
+        ).slice(0, 3)
+        if (similarFiles.length > 0) {
+          console.log('Similar files in index:', similarFiles)
+        }
+      }
+    } else {
+      // Fallback to HTTP requests if index is not available
+      try {
+        const response = await fetch(task.filePath)
+        
+        if (response.status === 200) {
+          try {
+            const content = await response.text()
             
-            // File type specific validation
-            if (exists && task.filePath.endsWith('.csv')) {
-              const lines = content.trim().split('\n')
-              exists = lines.length > 0 && lines[0].length > 0 && !lines[0].includes('<')
-            } else if (exists && task.filePath.endsWith('.fna')) {
-              exists = content.trim().startsWith('>')
+            // Check if it's actually an HTML error page
+            const isHtmlError = content.includes('<!DOCTYPE html>') || 
+                              content.includes('<html') || 
+                              content.includes('404') || 
+                              content.includes('Not Found') ||
+                              content.includes('Cannot resolve') ||
+                              content.includes('File not found')
+            
+            if (isHtmlError) {
+              exists = false
+            } else {
+              exists = !!(content && content.trim().length > 0)
+              
+              // File type specific validation
+              if (exists && task.filePath.endsWith('.csv')) {
+                const lines = content.trim().split('\n')
+                exists = lines.length > 0 && lines[0].length > 0 && !lines[0].includes('<')
+              } else if (exists && task.filePath.endsWith('.fna')) {
+                exists = content.trim().startsWith('>')
+              }
             }
+          } catch (textError) {
+            exists = false
           }
-        } catch (textError) {
+        } else {
           exists = false
         }
-      } else {
+      } catch (err) {
         exists = false
       }
-    } catch (err) {
-      exists = false
     }
     
     return {
@@ -581,6 +804,62 @@ const Errors = () => {
 
   const organismStats = getOrganismStats()
 
+  // Fast loading screen for better UX
+  if (initialLoading) {
+    return (
+      <div className="dashboard">
+        <Sidebar />
+        <main className="main-content">
+          <div className="errors-dashboard">
+            <div className="errors-header">
+              <h1>📊 File Analysis Dashboard</h1>
+              <p>Biological Data Integrity Checker</p>
+            </div>
+            
+            <div className="quick-load-container" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '300px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: '12px',
+              color: 'white',
+              margin: '20px 0'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🚀</div>
+              <h2>Inicializando Dashboard</h2>
+              <p style={{ opacity: 0.9, marginTop: '10px' }}>
+                Cargando datos de taxonomía e índice de archivos...
+              </p>
+              
+              <div style={{
+                width: '200px',
+                height: '4px',
+                backgroundColor: 'rgba(255,255,255,0.3)',
+                borderRadius: '2px',
+                marginTop: '20px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '2px',
+                  animation: 'pulse 1.5s ease-in-out infinite'
+                }}></div>
+              </div>
+              
+              <div style={{ marginTop: '20px', fontSize: '0.9rem', opacity: 0.8 }}>
+                ✨ Optimizado para miles de archivos
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
 
   return (
     <div className="dashboard">
@@ -639,12 +918,13 @@ const Errors = () => {
 
 
       {/* Organisms Analysis Table */}
-      {organismStats.filter(org => org.missingFiles > 0).length > 0 && (
+      {fileResults.length > 0 && (
         <div className="organisms-table">
           <div className="table-header">
-            <h2>Organisms with Missing Files</h2>
+            <h2>Organisms Analysis Summary</h2>
             <div className="table-info">
-              <span>{organismStats.filter(org => org.missingFiles > 0).length} organisms have missing files</span>
+              <span>{organismStats.length} organisms analyzed | </span>
+              <span>{organismStats.filter(org => org.missingFiles > 0).length} with missing files</span>
             </div>
           </div>
 
@@ -663,11 +943,12 @@ const Errors = () => {
               </thead>
               <tbody>
                 {organismStats
-                  .filter(org => org.missingFiles > 0)
                   .sort((a, b) => a.completionRate - b.completionRate) // Most problematic first
-                  .slice(0, 20) // Show top 20
                   .map(org => (
-                    <tr key={org.id} className={org.completionRate === 0 ? 'critical-row' : 'warning-row'}>
+                    <tr key={org.id} className={
+                      org.completionRate === 100 ? 'success-row' :
+                      org.completionRate === 0 ? 'critical-row' : 'warning-row'
+                    }>
                       <td className="organism-name">{org.name}</td>
                       <td className="organism-id">{org.id}</td>
                       <td>
@@ -694,8 +975,12 @@ const Errors = () => {
                         </div>
                       </td>
                       <td>
-                        <span className={`status-badge ${org.completionRate === 0 ? 'critical' : 'warning'}`}>
-                          {org.completionRate === 0 ? 'MISSING' : 'INCOMPLETE'}
+                        <span className={`status-badge ${
+                          org.completionRate === 100 ? 'success' :
+                          org.completionRate === 0 ? 'critical' : 'warning'
+                        }`}>
+                          {org.completionRate === 100 ? 'COMPLETE' : 
+                           org.completionRate === 0 ? 'MISSING' : 'INCOMPLETE'}
                         </span>
                       </td>
                     </tr>
@@ -703,9 +988,9 @@ const Errors = () => {
               </tbody>
             </table>
 
-            {organismStats.filter(org => org.missingFiles > 0).length > 20 && (
+            {organismStats.length > 20 && (
               <div className="table-footer">
-                <p>Showing top 20 organisms with missing files out of {organismStats.filter(org => org.missingFiles > 0).length} total</p>
+                <p>Showing all {organismStats.length} organisms</p>
               </div>
             )}
           </div>
@@ -753,6 +1038,39 @@ const Errors = () => {
               />
               Missing only
             </label>
+            <button 
+              onClick={clearCacheAndReload}
+              className="cache-clear-button"
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#ff6b6b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginLeft: '10px'
+              }}
+              disabled={loading}
+            >
+              🔄 Force Refresh
+            </button>
+            <button 
+              onClick={refreshFileIndex}
+              className="index-refresh-button"
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#3498db',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginLeft: '10px'
+              }}
+              disabled={loading}
+              title="Refresh file index after adding/removing files"
+            >
+              📁 Refresh Index
+            </button>
           </div>
         </div>
 

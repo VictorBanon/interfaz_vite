@@ -843,6 +843,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               type: 'heatmap',
               colorscale: [
                 [0, 'rgba(255, 255, 255, 1)'],
+                [0.1, 'rgb(128, 128, 128)'],
                 [1, 'rgb(0, 0, 255)']
               ],
               showscale: true,
@@ -887,6 +888,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               type: 'heatmap',
               colorscale: [
                 [0, 'hsla(0, 0%, 100%, 1.00)'],
+                [0.1, 'rgb(128, 128, 128)'],
                 [1, 'rgb(255, 0, 0)']
               ],
               showscale: true,
@@ -1075,6 +1077,8 @@ const AggregateStructural: React.FC<AggregateProps> = ({
     
     let colorGroups: { [key: string]: any[] } = {}
     let numericData: any[] = []
+    let colorValues: number[] = []
+    let categoryIndices: number[] = []
     
     if (isNumericGroupBy) {
       // Para variables numéricas, filtrar datos válidos y preparar valores numéricos
@@ -1082,195 +1086,163 @@ const AggregateStructural: React.FC<AggregateProps> = ({
         const value = parseFloat(row[groupBy])
         return !isNaN(value) && value !== null && value !== undefined
       })
+      colorValues = numericData.map(row => parseFloat(row[groupBy]))
       console.log('Numeric data filtered:', numericData.length, 'rows for', groupBy)
     } else {
-      // Para variables categóricas, hacer agrupación
+      // Para variables categóricas, hacer agrupación y crear índices
+      const uniqueCategories = [...new Set(acpData.data.map((row: any) => row[groupBy] || "Unknown"))].sort()
       acpData.data.forEach((row: any) => {
         const groupByValue = row[groupBy] || "Unknown"
+        const categoryIndex = uniqueCategories.indexOf(groupByValue)
+        categoryIndices.push(categoryIndex)
         if (!colorGroups[groupByValue]) colorGroups[groupByValue] = []
         colorGroups[groupByValue].push(row)
       })
       console.log('Categorical groups:', Object.keys(colorGroups))
+      console.log('Unique categories:', uniqueCategories)
     }
-    
-    // Definir colores para grupos categóricos
-    const fixedColors = [
-      '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
-      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-      '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
-      '#dbdb8d', '#9edae5', '#ff8c00', '#32cd32', '#ba55d3'
-    ]
-    
-    let colorMapping: { [key: string]: string } = {}
-    
-    if (!isNumericGroupBy) {
-      // Solo crear mapeo para variables categóricas
-      const sortedGroups = Object.keys(colorGroups).sort()
-      sortedGroups.forEach((group: string, index: number) => {
-        colorMapping[group] = fixedColors[index % fixedColors.length]
-      })
-    }
-    
-    // Crear todas las trazas para cada combinación de PCs
-    const allTraces: any[] = []
-    
-    // Crear cada subplot individualmente
-    availablePCs.forEach((pcY, rowIndex) => {
-      availablePCs.forEach((pcX, colIndex) => {
-        const subplotIndex = rowIndex * numPCs + colIndex + 1
-        
-        if (isNumericGroupBy) {
-          // Para variables numéricas (GC, size), crear una sola traza con escala de colores continua
-          allTraces.push({
-            x: numericData.map(row => row[`PC${pcX}`] || 0),
-            y: numericData.map(row => row[`PC${pcY}`] || 0),
-            text: numericData.map(row => 
-              `${row.fullname || row.ID || "Unknown"}<br>` +
-              `PC${pcX}: ${(row[`PC${pcX}`] || 0).toFixed(3)}<br>` +
-              `PC${pcY}: ${(row[`PC${pcY}`] || 0).toFixed(3)}<br>` +
-              `${groupBy}: ${row[groupBy] || "Unknown"}`
-            ),
-            mode: 'markers',
-            type: 'scatter',
-            marker: {
-              size: 6,
-              color: numericData.map(row => parseFloat(row[groupBy])),
-              colorscale: groupBy === 'GC' ? 'RdYlBu_r' : (
-                groupBy === 'size' ? [
-                  [0, 'lightblue'], [0.2, 'skyblue'], [0.4, 'steelblue'],
-                  [0.6, 'brown'], [0.8, 'saddlebrown'], [1, 'darkbrown']
-                ] : 'Plasma'
-              ),
-              ...(groupBy === 'GC' && { cmin: 0, cmax: 1 }),
-              colorbar: {
-                title: {
-                  text: groupBy === 'GC' ? 'GC Content' : (groupBy === 'size' ? 'Size (bp)' : groupBy),
-                  side: 'right'
-                },
-                thickness: 15,
-                len: 0.7,
-                x: 1.02,
-                tickfont: { size: 10 },
-                ...(groupBy === 'GC' && {
-                  tick0: 0,
-                  dtick: 0.1,
-                  tickmode: 'linear'
-                })
-              },
-              showscale: rowIndex === 0 && colIndex === 0, // Solo mostrar colorbar en el primer subplot
-              opacity: 0.7
-            },
-            name: `${groupBy} (scale)`,
-            showlegend: false,
-            xaxis: `x${subplotIndex}`,
-            yaxis: `y${subplotIndex}`,
-            hoverinfo: 'text'
-          })
-        } else {
-          // Para variables categóricas, crear trazas separadas por grupo
-          Object.entries(colorGroups).forEach(([groupName, points]) => {
-            const pointsArray = points as any[]
-            
-            allTraces.push({
-              x: pointsArray.map(row => row[`PC${pcX}`] || 0),
-              y: pointsArray.map(row => row[`PC${pcY}`] || 0),
-              text: pointsArray.map(row => 
-                `${row.fullname || row.ID || "Unknown"}<br>` +
-                `PC${pcX}: ${(row[`PC${pcX}`] || 0).toFixed(3)}<br>` +
-                `PC${pcY}: ${(row[`PC${pcY}`] || 0).toFixed(3)}<br>` +
-                `${groupBy}: ${row[groupBy] || "Unknown"}<br>` +
-                `${groupBy !== "genus" ? `Genus: ${row.genus || "Unknown"}<br>` : ""}` +
-                `${groupBy !== "species" ? `Species: ${row.species || "Unknown"}` : ""}`
-              ),
-              mode: 'markers',
-              type: 'scatter',
-              marker: {
-                size: 6,
-                color: colorMapping[groupName],
-                opacity: 0.7
-              },
-              name: `${groupName}`,
-              legendgroup: groupName,
-              showlegend: rowIndex === 0 && colIndex === 0, // Solo mostrar leyenda en el primer subplot
-              xaxis: `x${subplotIndex}`,
-              yaxis: `y${subplotIndex}`,
-              hoverinfo: 'text'
-            })
-          })
-        }
-      })
-    })
 
-    // Crear configuración de layout con subplots manuales
-    const layoutConfig: any = {
-      autosize: true,
-      margin: { l: 40, r: 20, t: 60, b: 40 }, // Aumentar margen superior para títulos arriba
-      showlegend: true,
-      legend: {
-        x: 1.01,
-        y: 1,
-        xanchor: 'left',
-        yanchor: 'top',
-        font: { size: 10 }
-      },
-      hoverlabel: {
-        bgcolor: 'white',
-        font: { size: 10 }
+    // Crear datos para SPLOM - preparar dimensiones para cada PC
+    const dimensions: any[] = availablePCs.map((pc: number) => ({
+      label: `PC${pc}`,
+      values: acpData.data.map((row: any) => row[`PC${pc}`] || 0)
+    }))
+
+    // Crear texto para hover
+    const hoverText = acpData.data.map((row: any) => 
+      `${row.fullname || row.ID || "Unknown"}<br>` +
+      `${groupBy}: ${row[groupBy] || "Unknown"}<br>` +
+      availablePCs.map((pc: number) => `PC${pc}: ${(row[`PC${pc}`] || 0).toFixed(3)}`).join('<br>')
+    )
+
+    // Configurar colores
+    let markerConfig: any = {
+      size: 4,
+      line: { color: 'white', width: 0.5 },
+      opacity: 0.7
+    }
+
+    if (isNumericGroupBy) {
+      markerConfig.color = colorValues
+      markerConfig.colorscale = groupBy === 'GC' ? 'RdYlBu_r' : (
+        groupBy === 'size' ? [
+          [0, 'lightblue'], [0.2, 'skyblue'], [0.4, 'steelblue'],
+          [0.6, 'brown'], [0.8, 'saddlebrown'], [1, 'darkbrown']
+        ] : 'Plasma'
+      )
+      markerConfig.showscale = true
+      markerConfig.colorbar = {
+        title: {
+          text: groupBy === 'GC' ? 'GC Content' : (groupBy === 'size' ? 'Size (bp)' : groupBy),
+          side: 'right'
+        },
+        thickness: 15,
+        len: 0.7,
+        x: 1.02,
+        tickfont: { size: 10 }
       }
-    }
-
-    // Configurar dominios para cada subplot
-    availablePCs.forEach((pcY, rowIndex) => {
-      availablePCs.forEach((pcX, colIndex) => {
-        const subplotIndex = rowIndex * numPCs + colIndex + 1
-        const axisName = subplotIndex === 1 ? '' : subplotIndex.toString()
-        
-        // Calcular dominios
-        const colWidth = 0.95 / numPCs
-        const rowHeight = 0.95 / numPCs
-        const xDomain = [colIndex * colWidth + 0.02, (colIndex + 1) * colWidth]
-        const yDomain = [1 - (rowIndex + 1) * rowHeight, 1 - rowIndex * rowHeight - 0.02]
-        
-        // Configurar eje X - mostrar título en la primera fila (arriba)
-        layoutConfig[`xaxis${axisName}`] = {
-          domain: xDomain,
-          title: rowIndex === 0 ? {
-            text: `PC${pcX}`,
-            font: { size: 12, color: 'black' },
-            standoff: 20
-          } : undefined,
-          titlefont: { size: 12 },
-          tickfont: { size: 8 },
-          showgrid: true,
-          zeroline: true,
-          showticklabels: rowIndex === numPCs - 1,
-          side: rowIndex === 0 ? 'top' : 'bottom'
-        }
-        
-        // Configurar eje Y - solo mostrar título en la primera columna
-        layoutConfig[`yaxis${axisName}`] = {
-          domain: yDomain,
-          title: colIndex === 0 ? {
-            text: `PC${pcY}`,
-            font: { size: 12, color: 'black' },
-            standoff: 20
-          } : undefined,
-          titlefont: { size: 12 },
-          tickfont: { size: 8 },
-          showgrid: true,
-          zeroline: true,
-          showticklabels: colIndex === 0,
-          side: 'left'
-        }
+      if (groupBy === 'GC') {
+        markerConfig.cmin = 0
+        markerConfig.cmax = 1
+      }
+    } else {
+      // Para variables categóricas, usar colores discretos
+      const uniqueCategories = [...new Set(acpData.data.map((row: any) => row[groupBy] || "Unknown"))].sort()
+      const fixedColors = [
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+        '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
+        '#dbdb8d', '#9edae5', '#ff8c00', '#32cd32', '#ba55d3'
+      ]
+      
+      const categoryColors = acpData.data.map((row: any) => {
+        const category = row[groupBy] || "Unknown"
+        const categoryIndex = uniqueCategories.indexOf(category)
+        return fixedColors[categoryIndex % fixedColors.length]
       })
-    })
+      
+      markerConfig.color = categoryColors
+      markerConfig.showscale = false // Para categóricas no mostrar escala de color
+    }
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ flex: 1 }}>
           <Plot
-            data={allTraces}
-            layout={layoutConfig}
+            data={isNumericGroupBy ? 
+              // Para variables numéricas: una sola traza SPLOM
+              [{
+                type: 'splom' as any,
+                dimensions: dimensions,
+                showupperhalf: false,
+                diagonal: { visible: false },
+                text: hoverText,
+                hovertemplate: '%{text}<extra></extra>',
+                marker: markerConfig
+              } as any] :
+              // Para variables categóricas: trazas separadas por categoría
+              (() => {
+                const uniqueCategories = [...new Set(acpData.data.map((row: any) => row[groupBy] || "Unknown"))].sort()
+                const fixedColors = [
+                  '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+                  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+                  '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
+                  '#dbdb8d', '#9edae5', '#ff8c00', '#32cd32', '#ba55d3'
+                ]
+                
+                return uniqueCategories.map((category, index) => {
+                  const categoryData = acpData.data.filter((row: any) => (row[groupBy] || "Unknown") === category)
+                  const categoryDimensions = availablePCs.map((pc: number) => ({
+                    label: `PC${pc}`,
+                    values: categoryData.map((row: any) => row[`PC${pc}`] || 0)
+                  }))
+                  const categoryHoverText = categoryData.map((row: any) => 
+                    `${row.fullname || row.ID || "Unknown"}<br>` +
+                    `${groupBy}: ${row[groupBy] || "Unknown"}<br>` +
+                    availablePCs.map((pc: number) => `PC${pc}: ${(row[`PC${pc}`] || 0).toFixed(3)}`).join('<br>')
+                  )
+                  
+                  return {
+                    type: 'splom' as any,
+                    dimensions: categoryDimensions,
+                    showupperhalf: false,
+                    diagonal: { visible: false },
+                    text: categoryHoverText,
+                    hovertemplate: '%{text}<extra></extra>',
+                    name: category,
+                    marker: {
+                      size: 4,
+                      color: fixedColors[index % fixedColors.length],
+                      line: { color: 'white', width: 0.5 },
+                      opacity: 0.7
+                    }
+                  } as any
+                })
+              })()
+            }
+            layout={{
+              title: { 
+                text: `Principal Components Analysis - ${groupBy} grouping`,
+                font: { size: 16 }
+              },
+              autosize: true,
+              margin: { l: 50, r: isNumericGroupBy ? 120 : 200, t: 60, b: 50 }, // Más margen para leyenda categórica
+              hoverlabel: {
+                bgcolor: 'white',
+                font: { size: 10 }
+              },
+              showlegend: !isNumericGroupBy, // Mostrar leyenda solo para variables categóricas
+              legend: !isNumericGroupBy ? {
+                x: 1.02,
+                y: 1,
+                xanchor: 'left',
+                yanchor: 'top',
+                font: { size: 10 },
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: '#999999',
+                borderwidth: 1
+              } : undefined
+            }}
             style={{ width: '100%', height: '100%' }}
             useResizeHandler={true}
             config={{ 
