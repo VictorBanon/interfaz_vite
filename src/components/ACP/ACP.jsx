@@ -107,6 +107,13 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     )
   }
 
+  // Función para obtener etiquetas de ejes más descriptivas
+  const getAxisLabel = (pcNumber) => {
+    if (pcNumber === "GC") return "GC Content"
+    if (pcNumber === "size") return "Size (bp)"
+    return `PC${pcNumber} (Principal Component ${pcNumber})`
+  }
+
   // Create traces based on groupBy type
   let traces
   if (groupBy === 'size' || groupBy === 'GC') {
@@ -120,15 +127,23 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     const numericValues = validData.map(row => parseFloat(row[groupBy]))
     
     traces = [{
-      x: validData.map(row => row[`PC${pcX}`] || 0),
-      y: validData.map(row => row[`PC${pcY}`] || 0),
+      x: validData.map(row => {
+        if (pcX === "GC") return parseFloat(row.GC) || 0;
+        if (pcX === "size") return parseFloat(row.size) || 0;
+        return row[`PC${pcX}`] || 0;
+      }),
+      y: validData.map(row => {
+        if (pcY === "GC") return parseFloat(row.GC) || 0;
+        if (pcY === "size") return parseFloat(row.size) || 0;
+        return row[`PC${pcY}`] || 0;
+      }),
       text: validData.map(row => row.id || ""),
       customdata: validData,
       hovertemplate: 
         '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
         '<b>ID:</b> %{customdata.ID}<br>' +
-        '<b>PC' + pcX + ' (X-axis):</b> %{x:.3f}<br>' +
-        '<b>PC' + pcY + ' (Y-axis):</b> %{y:.3f}<br>' +
+        '<b>' + getAxisLabel(pcX) + ':</b> %{x:.3f}<br>' +
+        '<b>' + getAxisLabel(pcY) + ':</b> %{y:.3f}<br>' +
         '<b>name:</b> %{customdata.fullname}<br>' +
         '<b>' + groupBy + ':</b> %{customdata.' + groupBy + '}<br>' +
         '<extra></extra>',
@@ -184,15 +199,23 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
 
     // Create one trace per group
     traces = Object.entries(groups).map(([groupValue, points]) => ({
-      x: points.map(row => row[`PC${pcX}`] || 0),
-      y: points.map(row => row[`PC${pcY}`] || 0),
+      x: points.map(row => {
+        if (pcX === "GC") return parseFloat(row.GC) || 0;
+        if (pcX === "size") return parseFloat(row.size) || 0;
+        return row[`PC${pcX}`] || 0;
+      }),
+      y: points.map(row => {
+        if (pcY === "GC") return parseFloat(row.GC) || 0;
+        if (pcY === "size") return parseFloat(row.size) || 0;
+        return row[`PC${pcY}`] || 0;
+      }),
       text: points.map(row => row.id || ""),
       customdata: points,
       hovertemplate: 
         '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
         '<b>ID:</b> %{customdata.ID}<br>' +
-        '<b>PC' + pcX + ' (X-axis):</b> %{x:.3f}<br>' +
-        '<b>PC' + pcY + ' (Y-axis):</b> %{y:.3f}<br>' +
+        '<b>' + getAxisLabel(pcX) + ':</b> %{x:.3f}<br>' +
+        '<b>' + getAxisLabel(pcY) + ':</b> %{y:.3f}<br>' +
         '<b>name:</b> %{customdata.fullname} <br>' +
         '<extra></extra>',
       mode: 'markers',
@@ -210,18 +233,15 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
 
   // Crear título dinámico con taxón y número de puntos
   const getTitle = () => {
-    const baseTitle = `PC${pcY} vs PC${pcX}`
+    const yLabel = pcY === "GC" ? "GC" : (pcY === "size" ? "Size" : `PC${pcY}`)
+    const xLabel = pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)
+    const baseTitle = `${yLabel} vs ${xLabel}`
     if (taxonValue && totalPoints > 0) {
       return `${taxonValue} (${totalPoints} puntos) - ${baseTitle}`
     } else if (totalPoints > 0) {
       return `${baseTitle} (${totalPoints} puntos)`
     }
     return baseTitle
-  }
-
-  // Función para obtener etiquetas de ejes más descriptivas
-  const getAxisLabel = (pcNumber) => {
-    return `PC${pcNumber} (Principal Component ${pcNumber})`
   }
 
   return (

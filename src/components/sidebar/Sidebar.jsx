@@ -37,7 +37,7 @@ const Sidebar = ({
   const [groupBy, setGroupBy] = useState(initialGroupBy || "Superdomain")
   // Reemplazar pcNumber por pcX y pcY
   const [pcX, setPcX] = useState(1)
-  const [pcY, setPcY] = useState(1)
+  const [pcY, setPcY] = useState(2)
   const [maxPC, setMaxPC] = useState(initialMaxPC || 6)
   const [selectedPCs, setSelectedPCs] = useState(initialSelectedPCs || [1, 2, 3, 4, 5, 6])
   
@@ -97,13 +97,27 @@ const Sidebar = ({
 
   // Validar y ajustar PCs seleccionados cuando cambie el número de PCs disponibles
   useEffect(() => {
-    if (pcX > availablePCs) {
+    let newPcX = pcX
+    let newPcY = pcY
+    let needsUpdate = false
+    
+    // Solo cambiar pcX si es un número y está fuera del rango
+    if (typeof pcX === 'number' && pcX > availablePCs) {
+      newPcX = 1
       setPcX(1)
-      handlePCChange(1, pcY)
+      needsUpdate = true
     }
-    if (pcY > availablePCs) {
-      setPcY(1)
-      handlePCChange(pcX, 1)
+    
+    // Solo cambiar pcY si es un número y está fuera del rango
+    if (typeof pcY === 'number' && pcY > availablePCs) {
+      newPcY = 2
+      setPcY(2)
+      needsUpdate = true
+    }
+    
+    // Solo llamar handlePCChange si realmente algo cambió
+    if (needsUpdate) {
+      handlePCChange(newPcX, newPcY)
     }
   }, [availablePCs])
 
@@ -140,9 +154,13 @@ const Sidebar = ({
   }
 
   const handlePCChange = (newX, newY) => {
-    if (newX) setPcX(newX)
-    if (newY) setPcY(newY)
-    onPCChange?.(newX || pcX, newY || pcY)
+    // Manejar valores string y number
+    const processedX = newX !== undefined && newX !== null ? (newX === "GC" || newX === "size" ? newX : Number(newX)) : pcX
+    const processedY = newY !== undefined && newY !== null ? (newY === "GC" || newY === "size" ? newY : Number(newY)) : pcY
+    
+    if (newX !== undefined && newX !== null) setPcX(processedX)
+    if (newY !== undefined && newY !== null) setPcY(processedY)
+    onPCChange?.(processedX, processedY)
   }
 
   const handlePartChange = (newpart) => {
@@ -287,29 +305,33 @@ const Sidebar = ({
               {(aggregateState === "PC" || aggregateState === "ACPvsAll") && (
                 <>
                   <label>
-                    PCx:
+                    X axe:
                     <select 
                       value={pcX} 
-                      onChange={e => handlePCChange(Number(e.target.value), null)}
+                      onChange={e => handlePCChange(e.target.value, undefined)}
                     >
                       {Array.from({ length: availablePCs }, (_, i) => i + 1).map(pc => (
                         <option key={pc} value={pc}>
                           PC{pc} {explainedVarianceData ? `(${getExplainedVarianceRatio(explainedVarianceData, pc)}% | ${getCumulativeExplainedVariance(explainedVarianceData, pc)}%)` : ''}
                         </option>
                       ))}
+                      <option value="GC">GC</option>
+                      <option value="size">Size</option>
                     </select>
                   </label>
                   <label>
-                    PCy:
+                    Y axe:
                     <select 
                       value={pcY} 
-                      onChange={e => handlePCChange(null, Number(e.target.value))}
+                      onChange={e => handlePCChange(undefined, e.target.value)}
                     >
                       {Array.from({ length: availablePCs }, (_, i) => i + 1).map(pc => (
                         <option key={pc} value={pc}>
                           PC{pc} {explainedVarianceData ? `(${getExplainedVarianceRatio(explainedVarianceData, pc)}% | ${getCumulativeExplainedVariance(explainedVarianceData, pc)}%)` : ''}
                         </option>
                       ))}
+                      <option value="GC">GC</option>
+                      <option value="size">Size</option>
                     </select>
                   </label>
                 </>
@@ -497,29 +519,33 @@ const Sidebar = ({
               {(aggregateState === "PC" || aggregateState === "ACPvsAll") && (
                 <>
                   <label>
-                    PCx:
+                    X axe:
                     <select 
                       value={pcX} 
-                      onChange={e => handlePCChange(Number(e.target.value), null)}
+                      onChange={e => handlePCChange(e.target.value, undefined)}
                     >
                       {Array.from({ length: availablePCs }, (_, i) => i + 1).map(pc => (
                         <option key={pc} value={pc}>
                           PC{pc} {explainedVarianceData ? `(${getExplainedVarianceRatio(explainedVarianceData, pc)}% | ${getCumulativeExplainedVariance(explainedVarianceData, pc)}%)` : ''}
                         </option>
                       ))}
+                      <option value="GC">GC</option>
+                      <option value="size">Size</option>
                     </select>
                   </label>
                   <label>
-                    PCy:
+                    Y axe:
                     <select 
                       value={pcY} 
-                      onChange={e => handlePCChange(null, Number(e.target.value))}
+                      onChange={e => handlePCChange(undefined, e.target.value)}
                     >
                       {Array.from({ length: availablePCs }, (_, i) => i + 1).map(pc => (
                         <option key={pc} value={pc}>
                           PC{pc} {explainedVarianceData ? `(${getExplainedVarianceRatio(explainedVarianceData, pc)}% | ${getCumulativeExplainedVariance(explainedVarianceData, pc)}%)` : ''}
                         </option>
                       ))}
+                      <option value="GC">GC</option>
+                      <option value="size">Size</option>
                     </select>
                   </label>
                 </>

@@ -19,8 +19,8 @@ declare global {
 
 interface AggregateProps {
   aggregate: string
-  pcX: number
-  pcY: number
+  pcX: number | string
+  pcY: number | string
   id?: string
   idReplicon?: string
   taxon?: string
@@ -547,7 +547,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
         } else if (aggregate === "ACPvsAll") {
           try {
             // Para ACPvsAll - solo cargar datos ACP (ya contiene todos los PCs)
-            if (taxon && taxonValue && part) {
+            if (taxon && taxonValue && part && typeof pcX === 'number' && typeof pcY === 'number') {
               const dynamicACPPath = await buildACPFilePath(taxon, taxonValue, part, 'acp', pcX, pcY)
               console.log('Dynamic ACPvsAll path:', { dynamicACPPath })
               
@@ -580,7 +580,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
         } else if (aggregate === "PCA_Taxon") {
           try {
             // Para PCA_Taxon - usar buildACPFilePath para construir la ruta correcta
-            if (taxonValue && part && taxon) {
+            if (taxonValue && part && taxon && typeof pcX === 'number' && typeof pcY === 'number') {
               const pcaTaxonPath = await buildACPFilePath(taxon, taxonValue, part, 'acp', pcX, pcY)
               console.log('Loading PCA_Taxon data from:', pcaTaxonPath)
               
@@ -652,7 +652,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
         } else {
           try {
             // Para PC analysis - usar rutas dinámicas
-            if (taxon && taxonValue && part) {
+            if (taxon && taxonValue && part && typeof pcX === 'number' && typeof pcY === 'number') {
               const dynamicPcXPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
               const dynamicPcYPath = await buildACPFilePath(taxon, taxonValue, part, 'PC', pcX, pcY)
               console.log('Dynamic PC paths:', { dynamicPcXPath, dynamicPcYPath })
@@ -725,6 +725,28 @@ const AggregateStructural: React.FC<AggregateProps> = ({
  
 
   if (aggregate === "PC") {
+    // Mostrar plot vacío cuando se seleccionen GC o size
+    if (pcX === "GC" || pcX === "size" || pcY === "GC" || pcY === "size") {
+      return (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '400px',
+          border: '1px solid #ddd',
+          borderRadius: '8px',
+          backgroundColor: '#f9f9f9',
+          color: '#666'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <h3>Plot no disponible</h3>
+            <p>Los plots estructurales PC no están disponibles para variables GC o Size.</p>
+            <p>Por favor, selecciona componentes principales (PC1, PC2, etc.) para ambos ejes.</p>
+          </div>
+        </div>
+      )
+    }
+    
     if (!DataPlot.pcX || !DataPlot.pcY || !DataPlot.pcX.z || !DataPlot.pcY.z) {
       return <div>No PC data available</div>
     }

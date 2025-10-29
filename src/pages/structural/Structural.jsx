@@ -56,7 +56,10 @@ const Structural = () => {
 
   const handlePCChange = (x, y) => {
     console.log('PC values updated:', { x, y })
-    setPcConfig({ x, y })
+    // Convertir strings a números si es necesario, o mantener strings para GC/size
+    const processedX = (x === "GC" || x === "size") ? x : (typeof x === 'string' ? parseInt(x) : x)
+    const processedY = (y === "GC" || y === "size") ? y : (typeof y === 'string' ? parseInt(y) : y)
+    setPcConfig({ x: processedX, y: processedY })
   }
 
   // Nuevo manejador para aggregate
