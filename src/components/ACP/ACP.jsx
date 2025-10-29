@@ -114,8 +114,56 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     return `PC${pcNumber} (Principal Component ${pcNumber})`
   }
 
+  // Función para obtener puntos extremos (altos y bajos) solo para el eje X
+  const getExtremePoints = (data, pcX) => {
+    if (!data || data.length === 0) return { extremeX: [] }
+    
+    // Filtrar datos válidos
+    const validData = data.filter(row => {
+      const xValue = pcX === "GC" ? parseFloat(row.GC) : 
+                   pcX === "size" ? parseFloat(row.size) : 
+                   row[`PC${pcX}`]
+      return !isNaN(xValue) && xValue !== null && xValue !== undefined
+    })
+    
+    if (validData.length === 0) return { extremeX: [] }
+    
+    // Calcular cuántos puntos extremos tomar
+    const totalPoints = validData.length
+    const numExtremePoints = totalPoints < 20 ? Math.floor(totalPoints / 2) : 10
+    
+    if (numExtremePoints === 0) return { extremeX: [] }
+    
+    // Obtener valores para el eje X
+    const xValues = validData.map(row => ({
+      data: row,
+      value: pcX === "GC" ? parseFloat(row.GC) : 
+             pcX === "size" ? parseFloat(row.size) : 
+             row[`PC${pcX}`]
+    }))
+    
+    // Ordenar por valor para encontrar extremos
+    xValues.sort((a, b) => a.value - b.value)
+    
+    // Obtener puntos extremos para X (altos y bajos)
+    const xLowPoints = xValues.slice(0, numExtremePoints)
+    const xHighPoints = xValues.slice(-numExtremePoints)
+    
+    return {
+      extremeX: [...xLowPoints, ...xHighPoints],
+      numExtremePoints
+    }
+  }
+
   // Create traces based on groupBy type
   let traces
+  
+  // Obtener puntos extremos solo para el eje X
+  const { extremeX, numExtremePoints } = getExtremePoints(data, pcX)
+  
+  // Crear conjunto de IDs para identificar puntos extremos del eje X
+  const extremeXIds = new Set(extremeX.map(point => point.data.ID || point.data['ID-replicon']))
+  
   if (groupBy === 'size' || groupBy === 'GC') {
     // For continuous variables, use numeric color scale with colorbar
     // Filter out rows with non-numeric values
@@ -228,6 +276,84 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     }))
   }
 
+  // Agregar trazas para puntos extremos del eje X si hay datos suficientes
+  if (numExtremePoints > 0 && extremeX.length > 0) {
+    // Puntos extremos para eje X
+    const xExtremePoints = extremeX.map(point => point.data)
+    
+    // Separar en altos y bajos para X
+    const xLowPoints = xExtremePoints.slice(0, numExtremePoints)
+    const xHighPoints = xExtremePoints.slice(numExtremePoints)
+    
+    // Traza para puntos X bajos (usando colores que no interfieran con groupBy)
+    if (xLowPoints.length > 0) {
+      traces.push({
+        x: xLowPoints.map(row => {
+          if (pcX === "GC") return parseFloat(row.GC) || 0;
+          if (pcX === "size") return parseFloat(row.size) || 0;
+          return row[`PC${pcX}`] || 0;
+        }),
+        y: xLowPoints.map(row => {
+          if (pcY === "GC") return parseFloat(row.GC) || 0;
+          if (pcY === "size") return parseFloat(row.size) || 0;
+          return row[`PC${pcY}`] || 0;
+        }),
+        customdata: xLowPoints,
+        hovertemplate: 
+          '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
+          '<b>ID:</b> %{customdata.ID}<br>' +
+          '<b>' + getAxisLabel(pcX) + ':</b> %{x:.3f} (BAJO)<br>' +
+          '<b>' + getAxisLabel(pcY) + ':</b> %{y:.3f}<br>' +
+          '<b>name:</b> %{customdata.fullname}<br>' +
+          '<extra></extra>',
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+          size: 10,
+          color: 'rgba(255, 68, 68, 0.8)', // Rojo semi-transparente para valores bajos
+          symbol: 'triangle-down',
+          line: { color: 'black', width: 2 }
+        },
+        name: `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} BOTTOM ${numExtremePoints}`,
+        showlegend: true
+      })
+    }
+    
+    // Traza para puntos X altos (usando colores que no interfieran con groupBy)
+    if (xHighPoints.length > 0) {
+      traces.push({
+        x: xHighPoints.map(row => {
+          if (pcX === "GC") return parseFloat(row.GC) || 0;
+          if (pcX === "size") return parseFloat(row.size) || 0;
+          return row[`PC${pcX}`] || 0;
+        }),
+        y: xHighPoints.map(row => {
+          if (pcY === "GC") return parseFloat(row.GC) || 0;
+          if (pcY === "size") return parseFloat(row.size) || 0;
+          return row[`PC${pcY}`] || 0;
+        }),
+        customdata: xHighPoints,
+        hovertemplate: 
+          '<b>ID-replicon:</b> %{customdata.ID-replicon}<br>' +
+          '<b>ID:</b> %{customdata.ID}<br>' +
+          '<b>' + getAxisLabel(pcX) + ':</b> %{x:.3f} (ALTO)<br>' +
+          '<b>' + getAxisLabel(pcY) + ':</b> %{y:.3f}<br>' +
+          '<b>name:</b> %{customdata.fullname}<br>' +
+          '<extra></extra>',
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+          size: 10,
+          color: 'rgba(68, 255, 68, 0.8)', // Verde semi-transparente para valores altos
+          symbol: 'triangle-up',
+          line: { color: 'black', width: 2 }
+        },
+        name: `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} TOP ${numExtremePoints}`,
+        showlegend: true
+      })
+    }
+  }
+
   // Calcular el número total de puntos
   const totalPoints = data.length
 
@@ -235,13 +361,16 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   const getTitle = () => {
     const yLabel = pcY === "GC" ? "GC" : (pcY === "size" ? "Size" : `PC${pcY}`)
     const xLabel = pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)
-    const baseTitle = `${yLabel} vs ${xLabel}`
+    const baseTitle = `${xLabel} vs ${yLabel}`
+    let title = baseTitle
+    
     if (taxonValue && totalPoints > 0) {
-      return `${taxonValue} (${totalPoints} puntos) - ${baseTitle}`
+      title = `${taxonValue} (${totalPoints} points) - ${baseTitle}`
     } else if (totalPoints > 0) {
-      return `${baseTitle} (${totalPoints} puntos)`
+      title = `${baseTitle} (${totalPoints} points)`
     }
-    return baseTitle
+    
+    return title
   }
 
   return (
