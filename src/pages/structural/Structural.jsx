@@ -30,8 +30,8 @@ const Structural = () => {
   const [taxonValue, setTaxonValue] = useState("Prokaryote")
 
   // Estados para filtro
-  const [selectedFilters, setSelectedFilters] = useState([])
-  const [availableFilterOptions, setAvailableFilterOptions] = useState([])
+  const [selectedFilters, setSelectedFilters] = useState({})
+  const [availableFilterOptions, setAvailableFilterOptions] = useState({})
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
@@ -116,13 +116,9 @@ const Structural = () => {
     setSelectedFilters(newFilters)
   }
 
-  const handleFilterOptionsChange = (options) => {
-    console.log('Available filter options:', options)
-    setAvailableFilterOptions(options)
-    // Si no hay filtros seleccionados, seleccionar todos por defecto
-    if (selectedFilters.length === 0) {
-      setSelectedFilters(options)
-    }
+  const handleFilterOptionsChange = (allFilterOptions) => {
+    console.log('Available filter options:', allFilterOptions)
+    setAvailableFilterOptions(allFilterOptions)
   }
 
   return (
@@ -144,6 +140,7 @@ const Structural = () => {
         selectedPCs={selectedPCs}
         groupBy={groupBy}
         selectedFilters={selectedFilters}
+        availableFilterOptions={availableFilterOptions}
       />
       <main className="main-content">
         {isCard2Expanded ? (

@@ -67,10 +67,25 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
             console.log('ACP data loaded:', filtered.length, 'rows')
             setData(filtered)
             
-            // Extract unique values for the current groupBy field and notify parent
-            if (onFilterOptionsChange && groupBy && groupBy !== 'GC' && groupBy !== 'size') {
-              const uniqueValues = [...new Set(filtered.map(row => row[groupBy]).filter(val => val && val !== ''))]
-              onFilterOptionsChange(uniqueValues)
+            // Extract all categorical columns and their unique values for filtering
+            if (onFilterOptionsChange && filtered.length > 0) {
+              const allFilterOptions = {}
+              
+              // Get all column names from the first row
+              const columns = Object.keys(filtered[0])
+              
+              // For each column, extract unique values (exclude numerical analysis columns like PC1, PC2, etc.)
+              columns.forEach(column => {
+                // Skip PC columns, GC, and size as they are handled separately
+                if (!column.startsWith('PC') && column !== 'GC' && column !== 'size') {
+                  const uniqueValues = [...new Set(filtered.map(row => row[column]).filter(val => val && val !== '' && val !== null && val !== undefined))]
+                  if (uniqueValues.length > 0 && uniqueValues.length < filtered.length * 0.8) { // Only include if it's truly categorical (not mostly unique)
+                    allFilterOptions[column] = uniqueValues
+                  }
+                }
+              })
+              
+              onFilterOptionsChange(allFilterOptions)
             }
           },
           error: (err) => {
@@ -96,17 +111,22 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   const filteredData = React.useMemo(() => {
     if (!data || data.length === 0) return data
     
-    // If no filters are selected or it's a continuous variable, return all data
-    if (selectedFilters.length === 0 || groupBy === 'GC' || groupBy === 'size') {
+    // If no filters are selected, return all data
+    if (!selectedFilters || Object.keys(selectedFilters).length === 0) {
       return data
     }
     
-    // Filter data based on selected filters
+    // Filter data based on selected filters for each column
     return data.filter(row => {
-      const groupValue = row[groupBy] || "Unknown"
-      return selectedFilters.includes(groupValue)
+      // Check if the row matches all filter criteria
+      return Object.entries(selectedFilters).every(([column, values]) => {
+        if (!values || values.length === 0) return true // No filter for this column
+        
+        const rowValue = row[column] || "Unknown"
+        return values.includes(rowValue)
+      })
     })
-  }, [data, selectedFilters, groupBy])
+  }, [data, selectedFilters])
 
   if (filteredData.length === 0 && data.length > 0) {
     return (
@@ -121,7 +141,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
         <h3>No Data Matches Filter</h3>
         <p>All data has been filtered out. Please adjust your filter selection.</p>
         <p style={{ fontSize: '0.8em', color: '#666' }}>
-          Analysis Type: {analysisType} | Taxon: {taxonValue} | Part: {part} | GroupBy: {groupBy}
+          Analysis Type: {analysisType} | Taxon: {taxonValue} | Part: {part} | Active Filters: {Object.keys(selectedFilters || {}).length}
         </p>
       </div>
     )

@@ -27,7 +27,8 @@ const Sidebar = ({
   maxPC: initialMaxPC,
   selectedPCs: initialSelectedPCs,
   groupBy: initialGroupBy,
-  selectedFilters: initialSelectedFilters // Nuevo prop para los filtros seleccionados
+  selectedFilters: initialSelectedFilters, // Nuevo prop para los filtros seleccionados
+  availableFilterOptions: initialAvailableFilterOptions // Nuevo prop para opciones disponibles
 }) => {
   const location = useLocation()
 
@@ -50,8 +51,9 @@ const Sidebar = ({
   const [taxonomyPlotType, setTaxonomyPlotType] = useState("icicle")
   
   // Estados para filtro multi-select
-  const [selectedFilters, setSelectedFilters] = useState(initialSelectedFilters || [])
-  const [availableFilterOptions, setAvailableFilterOptions] = useState([])
+  const [selectedFilters, setSelectedFilters] = useState(initialSelectedFilters || {})
+  const [availableFilterOptions, setAvailableFilterOptions] = useState(initialAvailableFilterOptions || {})
+  const [selectedFilterColumn, setSelectedFilterColumn] = useState('Superdomain') // Currently selected column for filtering
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false)
   const [filterSearchTerm, setFilterSearchTerm] = useState("")
   
@@ -103,32 +105,31 @@ const Sidebar = ({
     loadExplainedVarianceData()
   }, [taxon, taxon_value, part, location.pathname])
 
-  // Load filter options based on groupBy and taxonomy data
+  // Load filter options from ACP component (all available columns)
   useEffect(() => {
-    if (groupBy === 'GC' || groupBy === 'size') {
-      // For continuous variables, options will come from ACP component
-      setAvailableFilterOptions([])
-      setSelectedFilters([])
-      onFilterChange?.([])
-    } else if (taxonomyData && groupBy) {
-      // For categorical variables, get unique values from taxonomy data
-      const values = getTaxonValues(taxonomyData, groupBy)
-      setAvailableFilterOptions(values)
-      
-      // Initialize with all values selected if no filters are set
-      if (selectedFilters.length === 0 || !selectedFilters.every(filter => values.includes(filter))) {
-        setSelectedFilters(values)
-        onFilterChange?.(values)
-      }
-    }
-  }, [taxonomyData, groupBy])
+    // Filter options will be populated by the ACP component via onFilterOptionsChange
+    // No need to depend on groupBy anymore
+  }, [])
 
   // Sync with parent's filter options when they change
   useEffect(() => {
-    if (initialSelectedFilters !== undefined && Array.isArray(initialSelectedFilters)) {
+    if (initialSelectedFilters !== undefined && typeof initialSelectedFilters === 'object') {
       setSelectedFilters(initialSelectedFilters)
     }
   }, [initialSelectedFilters])
+
+  // Update available filter options when they come from parent
+  useEffect(() => {
+    if (initialAvailableFilterOptions) {
+      setAvailableFilterOptions(initialAvailableFilterOptions)
+      
+      // Set default selected column if it exists in the new options
+      const availableColumns = Object.keys(initialAvailableFilterOptions)
+      if (availableColumns.length > 0 && !availableColumns.includes(selectedFilterColumn)) {
+        setSelectedFilterColumn(availableColumns[0])
+      }
+    }
+  }, [initialAvailableFilterOptions, selectedFilterColumn])
 
   // Validar y ajustar PCs seleccionados cuando cambie el número de PCs disponibles
   useEffect(() => {
@@ -237,34 +238,40 @@ const Sidebar = ({
     onTaxonomyPlotChange?.(newPlotType)
   }
 
-  // Handlers for multi-select filter
+    // Handlers for multi-select filter
   const handleFilterToggle = (option) => {
-    setSelectedFilters(prev => {
-      const newFilters = prev.includes(option) 
-        ? prev.filter(f => f !== option)
-        : [...prev, option]
-      onFilterChange?.(newFilters)
-      return newFilters
-    })
+    const columnValues = selectedFilters[selectedFilterColumn] || []
+    const newColumnValues = columnValues.includes(option)
+      ? columnValues.filter(item => item !== option)
+      : [...columnValues, option]
+    
+    const newFilters = { ...selectedFilters, [selectedFilterColumn]: newColumnValues }
+    setSelectedFilters(newFilters)
+    onFilterChange?.(newFilters)
   }
 
   const handleFilterRemove = (option) => {
-    setSelectedFilters(prev => {
-      const newFilters = prev.filter(f => f !== option)
-      onFilterChange?.(newFilters)
-      return newFilters
-    })
+    const columnValues = selectedFilters[selectedFilterColumn] || []
+    const newColumnValues = columnValues.filter(item => item !== option)
+    const newFilters = { ...selectedFilters, [selectedFilterColumn]: newColumnValues }
+    setSelectedFilters(newFilters)
+    onFilterChange?.(newFilters)
   }
 
   const handleFilterClear = () => {
-    setSelectedFilters([])
-    onFilterChange?.([])
+    const newFilters = { ...selectedFilters, [selectedFilterColumn]: [] }
+    setSelectedFilters(newFilters)
+    onFilterChange?.(newFilters)
   }
 
   const handleFilterSelectAll = () => {
-    const newFilters = selectedFilters.length === availableFilterOptions.length 
+    const currentColumnOptions = availableFilterOptions[selectedFilterColumn] || []
+    const currentColumnValues = selectedFilters[selectedFilterColumn] || []
+    const newColumnValues = currentColumnValues.length === currentColumnOptions.length 
       ? [] 
-      : [...availableFilterOptions]
+      : [...currentColumnOptions]
+    
+    const newFilters = { ...selectedFilters, [selectedFilterColumn]: newColumnValues }
     setSelectedFilters(newFilters)
     onFilterChange?.(newFilters)
   }
@@ -328,6 +335,32 @@ const Sidebar = ({
               {/* Multi-select Filter Component */}
               <div className="multi-select-container">
                 <label>Filter Data:</label>
+                {/* Column Selector */}
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={{ fontSize: '0.85em', color: '#666' }}>
+                    Filter Column:
+                    <select 
+                      value={selectedFilterColumn} 
+                      onChange={(e) => setSelectedFilterColumn(e.target.value)}
+                      style={{ 
+                        marginLeft: '8px', 
+                        padding: '4px', 
+                        fontSize: '0.85em',
+                        backgroundColor: '#2c3e50',
+                        color: 'white',
+                        border: '1px solid #34495e',
+                        borderRadius: '3px'
+                      }}
+                    >
+                      {Object.keys(availableFilterOptions).map(column => (
+                        <option key={column} value={column}>
+                          {column} ({availableFilterOptions[column]?.length || 0} options)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                
                 <div className="select-wrapper">
                   <div 
                     className={`select has-value is-clearable is-searchable select--multi ${isFilterDropdownOpen ? 'is-focused' : ''}`}
@@ -335,11 +368,11 @@ const Sidebar = ({
                   >
                     <div className="select__control">
                       <div className="select__value-container">
-                        {selectedFilters.length === 0 ? (
-                          <div className="select__placeholder">Select items to filter...</div>
+                        {(!selectedFilters[selectedFilterColumn] || selectedFilters[selectedFilterColumn].length === 0) ? (
+                          <div className="select__placeholder">Select {selectedFilterColumn} values to filter...</div>
                         ) : (
                           <div className="select__multi-value-container">
-                            {selectedFilters.slice(0, 3).map((filter, index) => (
+                            {selectedFilters[selectedFilterColumn].slice(0, 3).map((filter, index) => (
                               <div key={filter} className="select__multi-value">
                                 <div className="select__multi-value__label">{filter}</div>
                                 <div 
@@ -353,10 +386,10 @@ const Sidebar = ({
                                 </div>
                               </div>
                             ))}
-                            {selectedFilters.length > 3 && (
+                            {selectedFilters[selectedFilterColumn].length > 3 && (
                               <div className="select__multi-value">
                                 <div className="select__multi-value__label">
-                                  +{selectedFilters.length - 3} more
+                                  +{selectedFilters[selectedFilterColumn].length - 3} more
                                 </div>
                               </div>
                             )}
@@ -364,7 +397,7 @@ const Sidebar = ({
                         )}
                       </div>
                       <div className="select__indicators">
-                        {selectedFilters.length > 0 && (
+                        {selectedFilters[selectedFilterColumn] && selectedFilters[selectedFilterColumn].length > 0 && (
                           <div 
                             className="select__clear-indicator"
                             onClick={(e) => {
@@ -378,7 +411,7 @@ const Sidebar = ({
                         <div className="select__dropdown-indicator">▼</div>
                       </div>
                     </div>
-                    {isFilterDropdownOpen && (
+                    {isFilterDropdownOpen && availableFilterOptions[selectedFilterColumn] && (
                       <div className="select__menu">
                         <div className="select__menu-list">
                           <div className="select__search-container">
@@ -400,19 +433,19 @@ const Sidebar = ({
                           >
                             <input 
                               type="checkbox" 
-                              checked={selectedFilters.length === availableFilterOptions.length}
+                              checked={(selectedFilters[selectedFilterColumn] || []).length === (availableFilterOptions[selectedFilterColumn] || []).length}
                               onChange={() => {}}
                             />
-                            Select All ({availableFilterOptions.length})
+                            Select All ({(availableFilterOptions[selectedFilterColumn] || []).length})
                           </div>
-                          {availableFilterOptions
+                          {(availableFilterOptions[selectedFilterColumn] || [])
                             .filter(option => 
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
                             )
                             .map(option => (
                               <div 
                                 key={option}
-                                className={`select__option ${selectedFilters.includes(option) ? 'select__option--is-selected' : ''}`}
+                                className={`select__option ${(selectedFilters[selectedFilterColumn] || []).includes(option) ? 'select__option--is-selected' : ''}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleFilterToggle(option);
@@ -420,7 +453,7 @@ const Sidebar = ({
                               >
                                 <input 
                                   type="checkbox" 
-                                  checked={selectedFilters.includes(option)}
+                                  checked={(selectedFilters[selectedFilterColumn] || []).includes(option)}
                                   onChange={() => {}}
                                 />
                                 {option}
@@ -431,6 +464,26 @@ const Sidebar = ({
                     )}
                   </div>
                 </div>
+                
+                {/* Active Filters Summary */}
+                {Object.keys(selectedFilters).some(col => selectedFilters[col] && selectedFilters[col].length > 0) && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '8px', 
+                    backgroundColor: '#34495e', 
+                    borderRadius: '4px',
+                    fontSize: '0.8em' 
+                  }}>
+                    <strong>Active Filters:</strong>
+                    {Object.entries(selectedFilters).map(([column, values]) => 
+                      values && values.length > 0 ? (
+                        <div key={column} style={{ marginTop: '4px' }}>
+                          <span style={{ color: '#3498db', fontWeight: 'bold' }}>{column}:</span> {values.length} selected
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+                )}
               </div>
 
               <label>
