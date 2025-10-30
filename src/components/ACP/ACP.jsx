@@ -3,9 +3,10 @@ import Plot from "react-plotly.js"
 import Papa from "papaparse"
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
 
-const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "Superdomain", analysisType = "hc" }) => {
+const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "Superdomain", analysisType = "hc", selectedFilters = [], onFilterOptionsChange }) => {
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
+  const [legendState, setLegendState] = useState({}) // Track which traces are visible/hidden
 
   // Build dynamic path when parameters change
   useEffect(() => {
@@ -65,6 +66,12 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
             const filtered = results.data.filter(row => row && Object.keys(row).length > 0)
             console.log('ACP data loaded:', filtered.length, 'rows')
             setData(filtered)
+            
+            // Extract unique values for the current groupBy field and notify parent
+            if (onFilterOptionsChange && groupBy && groupBy !== 'GC' && groupBy !== 'size') {
+              const uniqueValues = [...new Set(filtered.map(row => row[groupBy]).filter(val => val && val !== ''))]
+              onFilterOptionsChange(uniqueValues)
+            }
           },
           error: (err) => {
             console.error("CSV parsing error:", err)
@@ -85,10 +92,45 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     // Puedes hacerlo aquí
   }, [pcX, pcY])
 
+  // Apply filters to data
+  const filteredData = React.useMemo(() => {
+    if (!data || data.length === 0) return data
+    
+    // If no filters are selected or it's a continuous variable, return all data
+    if (selectedFilters.length === 0 || groupBy === 'GC' || groupBy === 'size') {
+      return data
+    }
+    
+    // Filter data based on selected filters
+    return data.filter(row => {
+      const groupValue = row[groupBy] || "Unknown"
+      return selectedFilters.includes(groupValue)
+    })
+  }, [data, selectedFilters, groupBy])
+
+  if (filteredData.length === 0 && data.length > 0) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center', 
+        color: '#e74c3c',
+        border: '2px solid #e74c3c',
+        borderRadius: '5px',
+        margin: '10px'
+      }}>
+        <h3>No Data Matches Filter</h3>
+        <p>All data has been filtered out. Please adjust your filter selection.</p>
+        <p style={{ fontSize: '0.8em', color: '#666' }}>
+          Analysis Type: {analysisType} | Taxon: {taxonValue} | Part: {part} | GroupBy: {groupBy}
+        </p>
+      </div>
+    )
+  }
+
   if (data.length === 0) return <p>Loading...</p>
   
   // Check for error messages
-  if (data.length === 1 && data[0].error) {
+  if (filteredData.length === 1 && filteredData[0].error) {
     return (
       <div style={{ 
         padding: '20px', 
@@ -99,7 +141,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
         margin: '10px'
       }}>
         <h3>Error Loading Data</h3>
-        <p>{data[0].error}</p>
+        <p>{filteredData[0].error}</p>
         <p style={{ fontSize: '0.8em', color: '#666' }}>
           Analysis Type: {analysisType} | Taxon: {taxonValue} | Part: {part}
         </p>
@@ -159,7 +201,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   let traces
   
   // Obtener puntos extremos solo para el eje X
-  const { extremeX, numExtremePoints } = getExtremePoints(data, pcX)
+  const { extremeX, numExtremePoints } = getExtremePoints(filteredData, pcX)
   
   // Crear conjunto de IDs para identificar puntos extremos del eje X
   const extremeXIds = new Set(extremeX.map(point => point.data.ID || point.data['ID-replicon']))
@@ -167,7 +209,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   if (groupBy === 'size' || groupBy === 'GC') {
     // For continuous variables, use numeric color scale with colorbar
     // Filter out rows with non-numeric values
-    const validData = data.filter(row => {
+    const validData = filteredData.filter(row => {
       const value = parseFloat(row[groupBy])
       return !isNaN(value) && value !== null && value !== undefined
     })
@@ -234,12 +276,13 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
         showscale: true
       },
       name: groupBy + ' (scale)',
-      showlegend: false
+      showlegend: false,
+      visible: legendState[groupBy + ' (scale)'] !== 'legendonly'
     }]
   } else {
     // For categorical variables, group by the selected field
     const groups = {}
-    data.forEach((row) => {
+    filteredData.forEach((row) => {
       const groupValue = row[groupBy] || "Unknown"
       if (!groups[groupValue]) groups[groupValue] = []
       groups[groupValue].push(row)
@@ -272,7 +315,8 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
         size: 6,
         color: groupValue,
       },
-      name: groupValue
+      name: groupValue,
+      visible: legendState[groupValue] !== 'legendonly' ? true : 'legendonly'
     }))
   }
 
@@ -287,6 +331,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     
     // Traza para puntos X bajos (usando colores que no interfieran con groupBy)
     if (xLowPoints.length > 0) {
+      const traceName = `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} BOTTOM ${numExtremePoints}`;
       traces.push({
         x: xLowPoints.map(row => {
           if (pcX === "GC") return parseFloat(row.GC) || 0;
@@ -314,13 +359,15 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
           symbol: 'triangle-down',
           line: { color: 'black', width: 2 }
         },
-        name: `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} BOTTOM ${numExtremePoints}`,
-        showlegend: true
+        name: traceName,
+        showlegend: true,
+        visible: legendState[traceName] !== 'legendonly' ? true : 'legendonly'
       })
     }
     
     // Traza para puntos X altos (usando colores que no interfieran con groupBy)
     if (xHighPoints.length > 0) {
+      const traceName = `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} TOP ${numExtremePoints}`;
       traces.push({
         x: xHighPoints.map(row => {
           if (pcX === "GC") return parseFloat(row.GC) || 0;
@@ -348,14 +395,15 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
           symbol: 'triangle-up',
           line: { color: 'black', width: 2 }
         },
-        name: `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} TOP ${numExtremePoints}`,
-        showlegend: true
+        name: traceName,
+        showlegend: true,
+        visible: legendState[traceName] !== 'legendonly' ? true : 'legendonly'
       })
     }
   }
 
   // Calcular el número total de puntos
-  const totalPoints = data.length
+  const totalPoints = filteredData.length
 
   // Crear título dinámico con taxón y número de puntos
   const getTitle = () => {
@@ -442,6 +490,22 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
               });
             }
           }
+        }}
+        onLegendClick={(event) => {
+          // Capture legend state to preserve filters
+          const traceName = event.data[event.curveNumber].name;
+          const newState = { ...legendState };
+          
+          if (event.data[event.curveNumber].visible === true) {
+            newState[traceName] = 'legendonly';
+          } else if (event.data[event.curveNumber].visible === 'legendonly') {
+            newState[traceName] = true;
+          } else {
+            newState[traceName] = true;
+          }
+          
+          setLegendState(newState);
+          return false; // Allow default legend behavior
         }}
       />
     </div>

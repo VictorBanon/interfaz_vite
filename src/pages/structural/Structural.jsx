@@ -29,6 +29,10 @@ const Structural = () => {
   const [taxon, setTaxon] = useState("Superdomain")
   const [taxonValue, setTaxonValue] = useState("Prokaryote")
 
+  // Estados para filtro
+  const [selectedFilters, setSelectedFilters] = useState([])
+  const [availableFilterOptions, setAvailableFilterOptions] = useState([])
+
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
     console.log('Available fields in point:', Object.keys(point));
@@ -106,6 +110,21 @@ const Structural = () => {
     setActiveTab(tabName)
   }
 
+  // Handlers para filtro
+  const handleFilterChange = (newFilters) => {
+    console.log('Filter changed to:', newFilters)
+    setSelectedFilters(newFilters)
+  }
+
+  const handleFilterOptionsChange = (options) => {
+    console.log('Available filter options:', options)
+    setAvailableFilterOptions(options)
+    // Si no hay filtros seleccionados, seleccionar todos por defecto
+    if (selectedFilters.length === 0) {
+      setSelectedFilters(options)
+    }
+  }
+
   return (
     <div className="dashboard">
       <Sidebar 
@@ -117,12 +136,14 @@ const Structural = () => {
         onMaxPCChange={handleMaxPCChange}
         onSelectedPCsChange={handleSelectedPCsChange}
         onGroupByChange={handleGroupByChange}
+        onFilterChange={handleFilterChange}
         aggregate={aggregate}
         taxon={taxon}
         taxonValue={taxonValue}
         maxPC={maxPC}
         selectedPCs={selectedPCs}
         groupBy={groupBy}
+        selectedFilters={selectedFilters}
       />
       <main className="main-content">
         {isCard2Expanded ? (
@@ -165,6 +186,8 @@ const Structural = () => {
                 taxonValue={taxonValue}
                 part={part}
                 groupBy={groupBy}
+                selectedFilters={selectedFilters}
+                onFilterOptionsChange={handleFilterOptionsChange}
               />
             </div> 
             <div className="card">
