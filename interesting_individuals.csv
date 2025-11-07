@@ -1,0 +1,5 @@
+id,superkingdom,phylum,class,order,family,genus,species
+GCF_000005845.2_ASM584v2,Bacteria,Pseudomonadota,Gammaproteobacteria,Enterobacterales,Enterobacteriaceae,Escherichia,Escherichia coli
+GCF_000006765.1_ASM676v1,Bacteria,Pseudomonadota,Gammaproteobacteria,Pseudomonadales,Pseudomonadaceae,Pseudomonas,Pseudomonas aeruginosa
+GCF_000006945.2_ASM694v2,Bacteria,Pseudomonadota,Gammaproteobacteria,Enterobacterales,Enterobacteriaceae,Salmonella,Salmonella enterica
+GCF_003030385.1_ASM303038v1,Bacteria,Actinomycetota,Actinomycetes,Micromonosporales,Micromonosporaceae,Plantactinospora,Plantactinospora sp. BB1

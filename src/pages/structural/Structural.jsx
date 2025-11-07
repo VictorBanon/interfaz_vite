@@ -8,6 +8,7 @@ import GapPlot from '../../components/structural/gap_plot'
 import ArmPlot from '../../components/structural/arm_plot'
 import TotalPlot from '../../components/structural/total_plot'
 import PercentualHeatmap from '../../components/structural/percentual_heatmap'
+import VectorComparisonPlot from '../../components/structural/vector_comparison_plot'
 
 import './Structural.css' 
 
@@ -173,7 +174,7 @@ const Structural = () => {
           // Vista normal - grid con todas las cards
           <div className="grid">
             <div className="card">
-              {/* Ventana 1 */ }
+              {/* Ventana 1 - ACP */}
               <ACP 
                 csvPath="/data/philogenie/Prokaryote/acp_hc_all_Prokaryote.csv" 
                 pcX={pcConfig.x}
@@ -212,7 +213,7 @@ const Structural = () => {
             <div className="card">  
               <div className="card-tabs">
                 <div className="tabs-header">
-                  {["gap/arm", "gap", "arm", "total", "percentual"].map((tab) => (
+                  {["gap/arm", "gap", "arm", "total", "percentual", "vector"].map((tab) => (
                     <button
                       key={tab}
                       className={`tab-button ${activeTab === tab ? "active" : ""}`}
@@ -237,6 +238,9 @@ const Structural = () => {
                   )}
                   {activeTab === "percentual" && (
                     <PercentualHeatmap id={selectedElement.id} idReplicon={selectedElement.idReplicon} name={selectedElement.name} part={part} />
+                  )}
+                  {activeTab === "vector" && (
+                    <VectorComparisonPlot id={selectedElement.id} idReplicon={selectedElement.idReplicon} name={selectedElement.name} part={part} />
                   )}
                 </div>
               </div>

@@ -6,6 +6,7 @@ import Spatial from './pages/spatial/Spatial.jsx'
 import Compositional from './pages/compositional/Compositional.jsx'
 import Motif from './pages/motif/Motif.jsx'
 import Errors from './pages/errors/Errors.tsx' 
+import InterestingIndividualsWrapper from './pages/interesting-individuals/InterestingIndividualsWrapper.tsx' 
 
 const App = () => {
   return (
@@ -19,6 +20,7 @@ const App = () => {
         <Route path="/compositional" element={<Compositional />} />
         <Route path="/motif" element={<Motif />} />
         <Route path="/errors" element={<Errors />} />
+        <Route path="/interesting-individuals" element={<InterestingIndividualsWrapper />} />
       </Routes> 
     </Router>
   )

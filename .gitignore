@@ -24,5 +24,6 @@ dist-ssr
 
 # 
 /data/
+/public/data/
 /data_12/
 /data_N/

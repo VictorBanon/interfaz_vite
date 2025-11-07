@@ -4,9 +4,13 @@ import Papa from "papaparse"
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
 
 const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "Superdomain", analysisType = "hc", selectedFilters = [], onFilterOptionsChange }) => {
+  console.log('ACP: Component mounted/rendered with props:', { csvPath, pcX, pcY, taxon, taxonValue, part, groupBy })
+  
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
   const [legendState, setLegendState] = useState({}) // Track which traces are visible/hidden
+
+  console.log('ACP: Current state - data length:', data.length, 'currentCsvPath:', currentCsvPath)
 
   // Build dynamic path when parameters change
   useEffect(() => {
@@ -441,8 +445,158 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     return title
   }
 
+  const openACPInPopup = () => {
+    // Create a popup window
+    const popup = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
+    
+    if (popup) {
+      // Create the HTML content for the popup
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>ACP Analysis - ${getTitle()}</title>
+          <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+          <style>
+            body {
+              margin: 0;
+              padding: 20px;
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              background-color: #f5f5f5;
+            }
+            .container {
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              padding: 20px;
+              height: calc(100vh - 80px);
+            }
+            .header {
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            .plot-container {
+              height: calc(100% - 80px);
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2>${getTitle()}</h2>
+              <p>Principal Component Analysis - ${analysisType.toUpperCase()} - ${part?.toUpperCase() || 'ALL'}</p>
+              <p>Grouped by: ${groupBy} | Total Points: ${totalPoints}</p>
+            </div>
+            <div id="plot" class="plot-container"></div>
+          </div>
+          <script>
+            const plotData = ${JSON.stringify(traces)};
+            
+            const layout = {
+              title: { 
+                text: '${getTitle()}',
+                font: { size: 18 }
+              },
+              xaxis: {
+                title: {
+                  text: '${getAxisLabel(pcX)}',
+                  font: { size: 16 }
+                },
+                titlefont: { size: 14 },
+                tickfont: { size: 12 }
+              },
+              yaxis: {
+                title: {
+                  text: '${getAxisLabel(pcY)}',
+                  font: { size: 16 }
+                },
+                titlefont: { size: 14 },
+                tickfont: { size: 12 }
+              },
+              hovermode: "closest",
+              autosize: true,
+              margin: { l: 80, r: 150, t: 80, b: 80 },
+              showlegend: true,
+              legend: {
+                x: 1.02,
+                y: 1,
+                xanchor: 'left',
+                yanchor: 'top',
+                font: { size: 12 },
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: '#999999',
+                borderwidth: 1
+              }
+            };
+            
+            const config = {
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false,
+              toImageButtonOptions: {
+                format: 'png',
+                filename: 'acp_${analysisType}_${part || 'all'}_${taxonValue || 'analysis'}',
+                height: 800,
+                width: 1000,
+                scale: 2
+              }
+            };
+            
+            Plotly.newPlot('plot', plotData, layout, config);
+            
+            // Make plot responsive to window resize
+            window.addEventListener('resize', () => {
+              Plotly.Plots.resize('plot');
+            });
+          </script>
+        </body>
+        </html>
+      `
+      
+      popup.document.write(htmlContent)
+      popup.document.close()
+    } else {
+      alert('Please allow popups to open the plot in a new window')
+    }
+  }
+
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div style={{ 
+        position: 'absolute', 
+        bottom: '10px', 
+        right: '10px', 
+        zIndex: 1000 
+      }}>
+        <button
+          onClick={openACPInPopup}
+          style={{
+            backgroundColor: '#3498db',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = '#2980b9'
+            e.currentTarget.style.transform = 'translateY(-1px)'
+            e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)'
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = '#3498db'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
+          }}
+          title="Open ACP plot in new window"
+        >
+          🔗 Open in Popup
+        </button>
+      </div>
       <Plot
         data={traces}
         layout={{

@@ -393,41 +393,77 @@ const Errors = () => {
     const results: FileCheckResult[] = []
     let completed = 0
 
-    // Process in batches with controlled concurrency
+    // Process in batches with true parallel execution
+    const batchPromises: Promise<FileCheckResult[]>[] = []
+    
     for (let i = 0; i < allTasks.length; i += BATCH_SIZE) {
       const batch = allTasks.slice(i, i + BATCH_SIZE)
-      setBatchProgress({ current: Math.floor(i / BATCH_SIZE) + 1, total: Math.ceil(allTasks.length / BATCH_SIZE) })
-      setCurrentCheck(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(allTasks.length / BATCH_SIZE)}`)
-
-      // Process batch with controlled concurrency
-      const batchPromises = batch.map(async (task, index) => {
-        // Stagger requests to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, (index % MAX_CONCURRENT_REQUESTS) * 50))
+      const batchIndex = Math.floor(i / BATCH_SIZE)
+      
+      // Create promise for this batch that will run in parallel
+      const batchPromise = (async () => {
+        // Small staggered delay to prevent all batches from starting simultaneously
+        await new Promise(resolve => setTimeout(resolve, batchIndex * 100))
         
-        return checkSingleFile(task)
+        // Process batch with controlled concurrency
+        const batchResults = await Promise.all(
+          batch.map(async (task, taskIndex) => {
+            // Stagger requests within batch to avoid overwhelming the server
+            if (taskIndex > 0 && taskIndex % MAX_CONCURRENT_REQUESTS === 0) {
+              await new Promise(resolve => setTimeout(resolve, 50))
+            }
+            return checkSingleFile(task)
+          })
+        )
+        
+        return batchResults
+      })()
+      
+      batchPromises.push(batchPromise)
+    }
+
+    // Set initial batch progress
+    setBatchProgress({ current: 0, total: batchPromises.length })
+
+    // Process all batches in parallel with progress tracking
+    try {
+      let completedBatches = 0
+      
+      // Use Promise.allSettled to handle individual batch failures
+      const batchSettledResults = await Promise.allSettled(
+        batchPromises.map(async (batchPromise) => {
+          const batchResults = await batchPromise
+          
+          // Update progress as each batch completes
+          completedBatches++
+          completed += batchResults.length
+          
+          setBatchProgress({ current: completedBatches, total: batchPromises.length })
+          setProcessedFiles(completed)
+          setProgress((completed / total) * 100)
+          setCurrentCheck(`Completed batch ${completedBatches} of ${batchPromises.length}`)
+
+          // Update UI with intermediate results for better UX
+          if (completed % PROGRESS_UPDATE_INTERVAL === 0 || completed === total) {
+            results.push(...batchResults)
+            setFileResults([...results])
+          }
+
+          return batchResults
+        })
+      )
+
+      // Collect all successful results
+      batchSettledResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          results.push(...result.value)
+        } else {
+          console.error('Batch failed:', result.reason)
+        }
       })
 
-      try {
-        const batchResults = await Promise.all(batchPromises)
-        results.push(...batchResults)
-        completed += batchResults.length
-        
-        setProcessedFiles(completed)
-        setProgress((completed / total) * 100)
-
-        // Update UI with intermediate results for better UX
-        if (completed % PROGRESS_UPDATE_INTERVAL === 0 || completed === total) {
-          setFileResults([...results])
-        }
-
-        // Small delay between batches to prevent browser freezing
-        if (i + BATCH_SIZE < allTasks.length) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-      } catch (error) {
-        console.error('Error processing batch:', error)
-        // Continue with next batch even if current batch fails
-      }
+    } catch (error) {
+      console.error('Error in parallel batch processing:', error)
     }
 
     // Final update
@@ -443,7 +479,7 @@ const Errors = () => {
     }
   }
 
-  // Single file checking function
+  // Single file checking function with optimized performance
   const checkSingleFile = async (task: {
     filePath: string
     type: string
@@ -458,65 +494,59 @@ const Errors = () => {
       const indexPath = task.filePath.replace(/^\.\//, '')
       exists = fileIndex.has(indexPath)
       
-      // Debug logging for problematic files
-      if (!exists && (task.type.includes('Structural') || task.type.includes('Genomic') || task.type.includes('Postprocessing'))) {
-        console.log('File not found in index:', {
-          originalPath: task.filePath,
-          indexPath: indexPath,
-          type: task.type,
-          id: task.id,
-          idReplicon: task.idReplicon,
-          indexHasFile: fileIndex.has(indexPath),
-          indexSize: fileIndex.size
-        })
-        
-        // Show similar files in index for debugging
-        const similarFiles = Array.from(fileIndex).filter(f => 
-          f.includes(task.id) && f.includes(task.type.toLowerCase())
-        ).slice(0, 3)
-        if (similarFiles.length > 0) {
-          console.log('Similar files in index:', similarFiles)
-        }
+      // Early return for index-based checking (much faster)
+      return {
+        path: task.filePath,
+        exists: exists,
+        type: task.type,
+        id: task.id,
+        idReplicon: task.idReplicon
       }
-    } else {
-      // Fallback to HTTP requests if index is not available
-      try {
-        const response = await fetch(task.filePath)
+    }
+    
+    // Fallback to HTTP requests if index is not available (slower)
+    try {
+      // Use HEAD request first for faster checking
+      const headResponse = await fetch(task.filePath, { method: 'HEAD' })
+      
+      if (headResponse.status === 200) {
+        exists = true
+      } else if (headResponse.status === 404) {
+        exists = false
+      } else {
+        // For ambiguous status codes, fall back to GET request
+        const getResponse = await fetch(task.filePath)
         
-        if (response.status === 200) {
-          try {
-            const content = await response.text()
-            
-            // Check if it's actually an HTML error page
-            const isHtmlError = content.includes('<!DOCTYPE html>') || 
-                              content.includes('<html') || 
-                              content.includes('404') || 
-                              content.includes('Not Found') ||
-                              content.includes('Cannot resolve') ||
-                              content.includes('File not found')
-            
-            if (isHtmlError) {
-              exists = false
-            } else {
-              exists = !!(content && content.trim().length > 0)
-              
-              // File type specific validation
-              if (exists && task.filePath.endsWith('.csv')) {
-                const lines = content.trim().split('\n')
-                exists = lines.length > 0 && lines[0].length > 0 && !lines[0].includes('<')
-              } else if (exists && task.filePath.endsWith('.fna')) {
-                exists = content.trim().startsWith('>')
-              }
-            }
-          } catch (textError) {
+        if (getResponse.status === 200) {
+          const content = await getResponse.text()
+          
+          // Check if it's actually an HTML error page
+          const isHtmlError = content.includes('<!DOCTYPE html>') || 
+                            content.includes('<html') || 
+                            content.includes('404') || 
+                            content.includes('Not Found') ||
+                            content.includes('Cannot resolve') ||
+                            content.includes('File not found')
+          
+          if (isHtmlError) {
             exists = false
+          } else {
+            exists = !!(content && content.trim().length > 0)
+            
+            // File type specific validation (only for non-obvious cases)
+            if (exists && task.filePath.endsWith('.csv')) {
+              const lines = content.trim().split('\n')
+              exists = lines.length > 0 && lines[0].length > 0 && !lines[0].includes('<')
+            } else if (exists && task.filePath.endsWith('.fna')) {
+              exists = content.trim().startsWith('>')
+            }
           }
         } else {
           exists = false
         }
-      } catch (err) {
-        exists = false
       }
+    } catch (err) {
+      exists = false
     }
     
     return {

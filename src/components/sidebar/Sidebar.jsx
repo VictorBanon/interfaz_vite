@@ -21,6 +21,7 @@ const Sidebar = ({
   onGroupByChange,
   onTaxonomyPlotChange, // Nuevo prop para manejar el cambio de plot en taxonomy
   onFilterChange, // Nuevo prop para manejar el filtro multi-select
+  onIndividualFilterChange, // Nuevo prop para manejar el filtro de individuos
   aggregate,
   taxon: initialTaxon,
   taxonValue: initialTaxonValue,
@@ -56,6 +57,9 @@ const Sidebar = ({
   const [selectedFilterColumn, setSelectedFilterColumn] = useState('Superdomain') // Currently selected column for filtering
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false)
   const [filterSearchTerm, setFilterSearchTerm] = useState("")
+  
+  // Estados específicos para Interesting Individuals
+  const [individualSearchTerm, setIndividualSearchTerm] = useState("")
   
   // Estados para datos de taxonomía
   const [taxonomyData, setTaxonomyData] = useState(null)
@@ -276,6 +280,12 @@ const Sidebar = ({
     onFilterChange?.(newFilters)
   }
 
+  // Handler para filtro de individuos
+  const handleIndividualSearchChange = (searchTerm) => {
+    setIndividualSearchTerm(searchTerm)
+    onIndividualFilterChange?.(searchTerm)
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -299,7 +309,7 @@ const Sidebar = ({
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        <h2 className={isCollapsed ? 'hidden' : ''}>Menú</h2>
+        <h2 className={isCollapsed ? 'hidden' : ''}>IR interface</h2>
         <button 
           className="collapse-btn"
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -867,6 +877,76 @@ const Sidebar = ({
           </Link>
           {!isCollapsed && location.pathname === '/errors' && (
             <p className="test-text">✅ Test: You are on File System Analysis</p>
+          )}
+        </li>
+
+        <li>
+          <Link to="/interesting-individuals" title={isCollapsed ? 'Interesting Individuals' : ''}>
+            {getLinkText('Interesting Individuals', 'Indiv')}
+          </Link>
+          {!isCollapsed && location.pathname === '/interesting-individuals' && (
+            <div className="manager">
+              <div className="individual-filter-container">
+                <label>Filter Individuals:</label>
+                <div className="search-input-container">
+                  <input
+                    type="text"
+                    className="individual-search-input"
+                    placeholder="Search by organism ID or species name..."
+                    value={individualSearchTerm}
+                    onChange={(e) => handleIndividualSearchChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      backgroundColor: '#2c3e50',
+                      color: 'white',
+                      border: '1px solid #34495e',
+                      borderRadius: '4px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s ease'
+                    }}
+                  />
+                  {individualSearchTerm && (
+                    <button
+                      onClick={() => handleIndividualSearchChange('')}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: '#95a5a6',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        padding: '0',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Clear search"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                {individualSearchTerm && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '6px 8px', 
+                    backgroundColor: '#34495e', 
+                    borderRadius: '3px',
+                    fontSize: '0.8em',
+                    color: '#ecf0f1'
+                  }}>
+                    <span style={{ color: '#3498db', fontWeight: 'bold' }}>Filter active:</span> "{individualSearchTerm}"
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </li>
       </ul>

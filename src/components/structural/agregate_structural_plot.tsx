@@ -751,9 +751,169 @@ const AggregateStructural: React.FC<AggregateProps> = ({
       return <div>No PC data available</div>
     }
 
+    const openPCInPopup = (pcData: any, pcNumber: string | number) => {
+      // Create a popup window
+      const popup = window.open('', '_blank', 'width=1000,height=700,scrollbars=yes,resizable=yes')
+      
+      if (popup) {
+        // Create the HTML content for the popup
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>PC${pcNumber} Distribution - Structural Analysis</title>
+            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+            <style>
+              body {
+                margin: 0;
+                padding: 20px;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f5f5f5;
+              }
+              .container {
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                padding: 20px;
+                height: calc(100vh - 80px);
+              }
+              .header {
+                margin-bottom: 20px;
+                text-align: center;
+              }
+              .plot-container {
+                height: calc(100% - 60px);
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h2>PC${pcNumber} Distribution</h2>
+                <p>Principal Component Analysis - ${part?.toUpperCase() || 'ALL'}</p>
+              </div>
+              <div id="plot" class="plot-container"></div>
+            </div>
+            <script>
+              const plotData = [{
+                z: ${JSON.stringify(pcData.z)},
+                x: ${JSON.stringify(pcData.x)},
+                y: ${JSON.stringify(pcData.y)},
+                type: 'heatmap',
+                colorscale: [
+                  [0, 'rgb(0, 0, 255)'],
+                  [0.5, 'rgb(255, 255, 255)'],
+                  [1, 'rgb(255, 0, 0)']
+                ],
+                showscale: true,
+                text: ${JSON.stringify(pcData.text)},
+                hoverinfo: 'text',
+                zmin: -1,
+                zmax: 1,
+                colorbar: {
+                  title: { text: 'PC Value' },
+                  tickfont: { size: 12 },
+                  len: 0.9
+                }
+              }];
+              
+              const layout = {
+                title: { 
+                  text: 'PC${pcNumber} Distribution',
+                  font: { size: 18 }
+                },
+                autosize: true,
+                margin: { l: 100, r: 120, t: 80, b: 100 },
+                xaxis: {
+                  title: { 
+                    text: 'Size',
+                    font: { size: 18 }
+                  },
+                  tickfont: { size: 16 },
+                  side: 'bottom'
+                },
+                yaxis: {
+                  title: { 
+                    text: 'Gap',
+                    font: { size: 18 }
+                  },
+                  tickfont: { size: 16 }
+                },
+                hoverlabel: {
+                  bgcolor: 'white',
+                  font: { size: 14 }
+                }
+              };
+              
+              const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                toImageButtonOptions: {
+                  format: 'png',
+                  filename: 'PC${pcNumber}_distribution_${part || 'all'}',
+                  height: 600,
+                  width: 800,
+                  scale: 2
+                }
+              };
+              
+              Plotly.newPlot('plot', plotData, layout, config);
+              
+              // Make plot responsive to window resize
+              window.addEventListener('resize', () => {
+                Plotly.Plots.resize('plot');
+              });
+            </script>
+          </body>
+          </html>
+        `
+        
+        popup.document.write(htmlContent)
+        popup.document.close()
+      } else {
+        alert('Please allow popups to open the plot in a new window')
+      }
+    }
+
     return (
       <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', height: '100%' }}>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ 
+            position: 'absolute', 
+            bottom: '10px', 
+            right: '10px', 
+            zIndex: 1000 
+          }}>
+            <button
+              onClick={() => openPCInPopup(DataPlot.pcX, pcX)}
+              style={{
+                backgroundColor: '#3498db',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#2980b9'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)'
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#3498db'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              title="Open PC plot in new window"
+            >
+              🔗 Popup
+            </button>
+          </div>
           <Plot
             data={[{
               z: DataPlot.pcX.z,
@@ -798,7 +958,42 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             }}
           />
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ 
+            position: 'absolute', 
+            bottom: '10px', 
+            right: '10px', 
+            zIndex: 1000 
+          }}>
+            <button
+              onClick={() => openPCInPopup(DataPlot.pcY, pcY)}
+              style={{
+                backgroundColor: '#3498db',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#2980b9'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)'
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#3498db'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              title="Open PC plot in new window"
+            >
+              🔗 Popup
+            </button>
+          </div>
           <Plot
             data={[{
               z: DataPlot.pcY.z,
