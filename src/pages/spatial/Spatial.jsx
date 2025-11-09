@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import Sidebar from '../../components/sidebar/Sidebar';
 import Replicon_plot from '../../components/spatial/Replicon_plot';
 import LinearRegressionPlot from '../../components/spatial/region_plot';
-import CSVWindow from '../../components/table/Table' 
+import CSVWindow from '../../components/table/Table';
+import { TAXONOMIC_COLUMNS, DEFAULT_TAXONOMIC_VALUES } from '../../utils/constants';
 
 import './Spatial.css'
 

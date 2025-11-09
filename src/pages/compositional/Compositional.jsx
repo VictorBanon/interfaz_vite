@@ -3,11 +3,12 @@ import Sidebar from '../../components/sidebar/Sidebar'
 import CSVWindow from '../../components/table/Table' 
 import TableIR from '../../components/compositional/table_ir'
 import ClusterIR from '../../components/compositional/cluster_ir'
+import { TAXONOMIC_COLUMNS, DEFAULT_TAXONOMIC_VALUES } from '../../utils/constants'
 
 const Compositional = () => {
   const [selectedRow, setSelectedRow] = useState(null)
-  const [taxon, setTaxon] = useState('superkingdom')
-  const [taxonValue, setTaxonValue] = useState('Bacteria')
+  const [taxon, setTaxon] = useState(TAXONOMIC_COLUMNS[0].toLowerCase()) // 'superdomain'
+  const [taxonValue, setTaxonValue] = useState(DEFAULT_TAXONOMIC_VALUES.Superdomain) // 'Prokaryote'
 
   const handleRowClick = (row) => {
     setSelectedRow(row)

@@ -8,7 +8,7 @@ import {
   getExplainedVarianceRatio,
   getCumulativeExplainedVariance 
 } from '../../utils/taxonomyUtils'
-import { TAXONOMIC_COLUMNS } from '../../utils/constants.ts'
+import { TAXONOMIC_COLUMNS, CONTINUOUS_COLUMNS, DEFAULT_TAXONOMIC_VALUES } from '../../utils/constants.ts'
 
 const Sidebar = ({  
   onPartChange, 
@@ -22,6 +22,7 @@ const Sidebar = ({
   onTaxonomyPlotChange, // Nuevo prop para manejar el cambio de plot en taxonomy
   onFilterChange, // Nuevo prop para manejar el filtro multi-select
   onIndividualFilterChange, // Nuevo prop para manejar el filtro de individuos
+  onGroupByVisibilityChange, // Nuevo prop para manejar visibilidad de valores de groupBy
   aggregate,
   taxon: initialTaxon,
   taxonValue: initialTaxonValue,
@@ -29,16 +30,18 @@ const Sidebar = ({
   selectedPCs: initialSelectedPCs,
   groupBy: initialGroupBy,
   selectedFilters: initialSelectedFilters, // Nuevo prop para los filtros seleccionados
-  availableFilterOptions: initialAvailableFilterOptions // Nuevo prop para opciones disponibles
+  availableFilterOptions: initialAvailableFilterOptions, // Nuevo prop para opciones disponibles
+  availableFilterCounts: initialAvailableFilterCounts = {}, // Nuevo prop para conteos de filtros
+  visibleGroupByValues: initialVisibleGroupByValues = {} // Nuevo prop para valores visibles de groupBy
 }) => {
   const location = useLocation()
 
-  // local state for the 
-  const [taxon, setTaxon] = useState(initialTaxon || "superkingdom")  
-  const [taxon_value, setTaxon_value] = useState(initialTaxonValue || "Bacteria")
+  // local state for the - usando valores por defecto de constants
+  const [taxon, setTaxon] = useState(initialTaxon || TAXONOMIC_COLUMNS[0].toLowerCase())  
+  const [taxon_value, setTaxon_value] = useState(initialTaxonValue || DEFAULT_TAXONOMIC_VALUES.Superdomain)
   const [part, setPart] = useState("all")
   const [aggregateState, setAggregateState] = useState(aggregate || "PC")
-  const [groupBy, setGroupBy] = useState(initialGroupBy || "Superdomain")
+  const [groupBy, setGroupBy] = useState(initialGroupBy || TAXONOMIC_COLUMNS[0])
   // Reemplazar pcNumber por pcX y pcY
   const [pcX, setPcX] = useState(1)
   const [pcY, setPcY] = useState(2)
@@ -51,12 +54,19 @@ const Sidebar = ({
   // Estado para tipo de plot en taxonomy
   const [taxonomyPlotType, setTaxonomyPlotType] = useState("icicle")
   
-  // Estados para filtro multi-select
+    // Estados para filtro multi-select
   const [selectedFilters, setSelectedFilters] = useState(initialSelectedFilters || {})
   const [availableFilterOptions, setAvailableFilterOptions] = useState(initialAvailableFilterOptions || {})
-  const [selectedFilterColumn, setSelectedFilterColumn] = useState('Superdomain') // Currently selected column for filtering
+  const [availableFilterCounts, setAvailableFilterCounts] = useState(initialAvailableFilterCounts || {})
+  const [selectedFilterColumn, setSelectedFilterColumn] = useState('Superdomain') 
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false)
   const [filterSearchTerm, setFilterSearchTerm] = useState("")
+  
+  // Estados para control de visualización de groupBy
+  const [visibleGroupByValues, setVisibleGroupByValues] = useState(initialVisibleGroupByValues || {})
+  const [allGroupByValues, setAllGroupByValues] = useState({})
+  const [isGroupByDropdownOpen, setIsGroupByDropdownOpen] = useState(false)
+  const [groupBySearchTerm, setGroupBySearchTerm] = useState("")
   
   // Estados específicos para Interesting Individuals
   const [individualSearchTerm, setIndividualSearchTerm] = useState("")
@@ -75,7 +85,8 @@ const Sidebar = ({
       const data = await readTaxonomyData()
       setTaxonomyData(data)
       // Establecer los valores iniciales para el taxón por defecto
-      const initialValues = getTaxonValues(data, taxon)
+      const currentTaxon = taxon
+      const initialValues = getTaxonValues(data, currentTaxon)
       setAvailableValues(initialValues)
       // Si el valor actual no está en la lista, seleccionar el primero
       if (initialValues.length > 0 && !initialValues.includes(taxon_value)) {
@@ -84,7 +95,7 @@ const Sidebar = ({
     }
     
     loadTaxonomyData()
-  }, [])
+  }, []) // Solo al montar - no incluir taxon ni taxon_value
 
   // Cargar datos de explained variance cuando cambien los parámetros relevantes
   useEffect(() => {
@@ -122,7 +133,7 @@ const Sidebar = ({
     }
   }, [initialSelectedFilters])
 
-  // Update available filter options when they come from parent
+    // Update available filter options when they come from parent
   useEffect(() => {
     if (initialAvailableFilterOptions) {
       setAvailableFilterOptions(initialAvailableFilterOptions)
@@ -133,33 +144,41 @@ const Sidebar = ({
         setSelectedFilterColumn(availableColumns[0])
       }
     }
-  }, [initialAvailableFilterOptions, selectedFilterColumn])
+    
+    if (initialAvailableFilterCounts) {
+      setAvailableFilterCounts(initialAvailableFilterCounts)
+    }
+  }, [initialAvailableFilterOptions, initialAvailableFilterCounts])
 
   // Validar y ajustar PCs seleccionados cuando cambie el número de PCs disponibles
+  // Este efecto solo se ejecuta cuando availablePCs cambia
   useEffect(() => {
+    let needsUpdate = false
     let newPcX = pcX
     let newPcY = pcY
-    let needsUpdate = false
     
     // Solo cambiar pcX si es un número y está fuera del rango
     if (typeof pcX === 'number' && pcX > availablePCs) {
       newPcX = 1
-      setPcX(1)
       needsUpdate = true
     }
     
     // Solo cambiar pcY si es un número y está fuera del rango
     if (typeof pcY === 'number' && pcY > availablePCs) {
       newPcY = 2
-      setPcY(2)
       needsUpdate = true
     }
     
-    // Solo llamar handlePCChange si realmente algo cambió
+    // Solo actualizar estados y notificar al padre si realmente algo cambió
     if (needsUpdate) {
-      handlePCChange(newPcX, newPcY)
+      setPcX(newPcX)
+      setPcY(newPcY)
+      // Notificar al padre directamente sin usar handlePCChange
+      if (onPCChange) {
+        onPCChange(newPcX, newPcY)
+      }
     }
-  }, [availablePCs])
+  }, [availablePCs]) // Solo depender de availablePCs - pcX y pcY se leen pero no disparan el efecto
 
   // Actualizar valores disponibles cuando cambie el taxón
   useEffect(() => {
@@ -170,10 +189,59 @@ const Sidebar = ({
       if (values.length > 0 && !values.includes(taxon_value)) {
         const newValue = values[0]
         setTaxon_value(newValue)
-        onTaxonValueChange?.(newValue)
+        // Solo notificar al padre si realmente cambió el valor
+        if (newValue !== taxon_value) {
+          onTaxonValueChange?.(newValue)
+        }
       }
     }
-  }, [taxon, taxonomyData])
+  }, [taxon, taxonomyData]) // Removemos taxon_value y onTaxonValueChange de las dependencias para evitar loops
+
+  // Cargar y procesar valores disponibles para GroupBy
+  useEffect(() => {
+    // Solo procesar controles de visibilidad para columnas taxonómicas
+    if (availableFilterCounts && groupBy && availableFilterCounts[groupBy] && TAXONOMIC_COLUMNS.includes(groupBy)) {
+      // Usar los conteos reales enviados desde ACP
+      const valueCounts = availableFilterCounts[groupBy]
+      setAllGroupByValues(valueCounts)
+      
+      // Si no hay valores visibles configurados, mostrar top 5 por defecto
+      const currentVisibleCount = Object.keys(visibleGroupByValues).filter(key => visibleGroupByValues[key]).length
+      if (currentVisibleCount === 0) {
+        const sortedValues = Object.entries(valueCounts)
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 5)
+          .reduce((acc, [key]) => ({ ...acc, [key]: true }), {})
+        setVisibleGroupByValues(sortedValues)
+        onGroupByVisibilityChange?.(sortedValues)
+      }
+    } else if (availableFilterOptions && groupBy && availableFilterOptions[groupBy] && TAXONOMIC_COLUMNS.includes(groupBy)) {
+      // Fallback al método anterior si no hay conteos disponibles (solo para columnas taxonómicas)
+      const valueCounts = {}
+      availableFilterOptions[groupBy].forEach(value => {
+        valueCounts[value] = (valueCounts[value] || 0) + 1
+      })
+      setAllGroupByValues(valueCounts)
+      
+      // Si no hay valores visibles configurados, mostrar top 5 por defecto
+      const currentVisibleCount = Object.keys(visibleGroupByValues).filter(key => visibleGroupByValues[key]).length
+      if (currentVisibleCount === 0) {
+        const sortedValues = Object.entries(valueCounts)
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 5)
+          .reduce((acc, [key]) => ({ ...acc, [key]: true }), {})
+        setVisibleGroupByValues(sortedValues)
+        onGroupByVisibilityChange?.(sortedValues)
+      }
+    } else if (!TAXONOMIC_COLUMNS.includes(groupBy)) {
+      // Para columnas no taxonómicas, limpiar los controles de visibilidad solo si no están vacíos
+      if (Object.keys(visibleGroupByValues).length > 0 || Object.keys(allGroupByValues).length > 0) {
+        setAllGroupByValues({})
+        setVisibleGroupByValues({})
+        onGroupByVisibilityChange?.({})
+      }
+    }
+  }, [groupBy, availableFilterOptions, availableFilterCounts]) // No incluir visibleGroupByValues para evitar loops
 
   // Manejar cambios en taxon
   const handleTaxonChange = (newTaxon) => {
@@ -194,9 +262,9 @@ const Sidebar = ({
   }
 
   const handlePCChange = (newX, newY) => {
-    // Manejar valores string y number
-    const processedX = newX !== undefined && newX !== null ? (newX === "GC" || newX === "size" ? newX : Number(newX)) : pcX
-    const processedY = newY !== undefined && newY !== null ? (newY === "GC" || newY === "size" ? newY : Number(newY)) : pcY
+    // Use CONTINUOUS_COLUMNS constant for string columns that should not be converted to numbers
+    const processedX = newX !== undefined && newX !== null ? (CONTINUOUS_COLUMNS.includes(newX) ? newX : Number(newX)) : pcX
+    const processedY = newY !== undefined && newY !== null ? (CONTINUOUS_COLUMNS.includes(newY) ? newY : Number(newY)) : pcY
     
     if (newX !== undefined && newX !== null) setPcX(processedX)
     if (newY !== undefined && newY !== null) setPcY(processedY)
@@ -286,6 +354,44 @@ const Sidebar = ({
     onIndividualFilterChange?.(searchTerm)
   }
 
+  // Handlers para control de visibilidad de groupBy
+  const handleGroupByValueToggle = (value) => {
+    const newVisibleValues = { ...visibleGroupByValues }
+    newVisibleValues[value] = !newVisibleValues[value]
+    setVisibleGroupByValues(newVisibleValues)
+    onGroupByVisibilityChange?.(newVisibleValues)
+  }
+
+  const handleGroupByValueAdd = (value) => {
+    const newVisibleValues = { ...visibleGroupByValues, [value]: true }
+    setVisibleGroupByValues(newVisibleValues)
+    onGroupByVisibilityChange?.(newVisibleValues)
+  }
+
+  const handleGroupByValueRemove = (value) => {
+    const newVisibleValues = { ...visibleGroupByValues }
+    delete newVisibleValues[value]
+    setVisibleGroupByValues(newVisibleValues)
+    onGroupByVisibilityChange?.(newVisibleValues)
+  }
+
+  const handleGroupByShowTop5 = () => {
+    // Get top 5 values by count from allGroupByValues
+    const sortedValues = Object.entries(allGroupByValues)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .reduce((acc, [key]) => ({ ...acc, [key]: true }), {})
+    
+    setVisibleGroupByValues(sortedValues)
+    onGroupByVisibilityChange?.(sortedValues)
+  }
+
+  const handleGroupByShowAll = () => {
+    const allVisible = Object.keys(allGroupByValues).reduce((acc, key) => ({ ...acc, [key]: true }), {})
+    setVisibleGroupByValues(allVisible)
+    onGroupByVisibilityChange?.(allVisible)
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -293,18 +399,45 @@ const Sidebar = ({
         setIsFilterDropdownOpen(false)
         setFilterSearchTerm("")
       }
+      if (!event.target.closest('.groupby-dropdown')) {
+        setIsGroupByDropdownOpen(false)
+        setGroupBySearchTerm("")
+      }
     }
     
-    if (isFilterDropdownOpen) {
+    if (isFilterDropdownOpen || isGroupByDropdownOpen) {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
-  }, [isFilterDropdownOpen])
+  }, [isFilterDropdownOpen, isGroupByDropdownOpen])
 
   // Función para mostrar texto completo o abreviado
   const getLinkText = (fullText, shortText) => {
     return isCollapsed ? shortText : fullText
   }
+
+  // Función para renderizar opciones de Group By de manera consistente
+  const renderGroupByOptions = () => (
+    <>
+      {TAXONOMIC_COLUMNS.map(column => (
+        <option key={column} value={column}>{column}</option>
+      ))}
+      <option value="Replicons_type">Replicons Type</option>
+      {CONTINUOUS_COLUMNS.map(column => (
+        <option key={column} value={column}>
+          {column === 'GC' ? 'GC' :
+           column === 'size' ? 'Size' :
+           column === 'Coding size' ? 'Coding Size' :
+           column === 'Non-coding size' ? 'Non-coding Size' :
+           column === 'coding_percentage' ? 'Coding Percentage' :
+           column === 'non_coding_percentage' ? 'Non-coding Percentage' :
+           column === 'overlap' ? 'Overlap' :
+           column === 'overlap_percentage' ? 'Overlap Percentage' :
+           column}
+        </option>
+      ))}
+    </>
+  )
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
@@ -499,9 +632,9 @@ const Sidebar = ({
               <label>
                 Taxon:
                 <select value={taxon} onChange={e => handleTaxonChange(e.target.value)}>
-                  {taxonomyData?.columns.map(column => (
-                    <option key={column} value={column}>
-                      {column.charAt(0).toUpperCase() + column.slice(1)}
+                  {TAXONOMIC_COLUMNS.map(column => (
+                    <option key={column} value={column.toLowerCase()}>
+                      {column}
                     </option>
                   ))}
                 </select>
@@ -529,17 +662,7 @@ const Sidebar = ({
               <label>
                 Group By:
                 <select value={groupBy} onChange={e => handleGroupByChange(e.target.value)}>
-                  <option value="Superdomain">Superdomain</option>
-                  <option value="Domain">Domain</option>
-                  <option value="Phylum">Phylum</option>
-                  <option value="Class">Class</option>
-                  <option value="Order">Order</option>
-                  <option value="Family">Family</option>
-                  <option value="Genus">Genus</option>
-                  <option value="Species">Species</option>
-                  <option value="Replicons_type">Replicons Type</option>
-                  <option value="GC">GC</option>
-                  <option value="size">Size</option>
+                  {renderGroupByOptions()}
                 </select>
               </label>
 
@@ -554,6 +677,179 @@ const Sidebar = ({
                   <option value="Variance explained">Variance explained</option>
                  </select>
               </label>
+
+              {/* Control de visibilidad de valores de GroupBy - Solo para columnas taxonómicas */}
+              {TAXONOMIC_COLUMNS.includes(groupBy) && Object.keys(allGroupByValues).length > 0 && (
+                <div className="groupby-dropdown" style={{ marginTop: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Visible {groupBy} Values:
+                  </label>
+                  <div style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
+                    <button
+                      type="button"
+                      onClick={handleGroupByShowTop5}
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        backgroundColor: '#3498db',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Top 5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGroupByShowAll}
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        backgroundColor: '#2ecc71',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Show All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsGroupByDropdownOpen(!isGroupByDropdownOpen)}
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        backgroundColor: '#9b59b6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Custom
+                    </button>
+                  </div>
+
+                  {/* Lista de valores visibles */}
+                  <div style={{ fontSize: '10px', maxHeight: '80px', overflowY: 'auto', marginBottom: '5px' }}>
+                    {Object.keys(visibleGroupByValues).filter(key => visibleGroupByValues[key]).map(value => (
+                      <div key={value} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        padding: '3px 6px',
+                        backgroundColor: '#e3f2fd', // Azul claro para mejor visibilidad
+                        border: '1px solid #2196f3', // Borde azul
+                        margin: '2px 0',
+                        borderRadius: '4px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)' // Sombra sutil
+                      }}>
+                        <span style={{ 
+                          fontSize: '9px', 
+                          fontWeight: 'bold', 
+                          color: '#1976d2' // Texto azul oscuro
+                        }}>
+                          {value} ({allGroupByValues[value] || 0})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleGroupByValueRemove(value)}
+                          style={{
+                            fontSize: '8px',
+                            padding: '0 4px',
+                            backgroundColor: '#f44336', // Rojo más vibrante
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Información sobre valores "Other" */}
+                  {Object.keys(allGroupByValues).length > 0 && Object.keys(visibleGroupByValues).length > 0 && (
+                    <div style={{
+                      fontSize: '9px',
+                      padding: '4px 6px',
+                      backgroundColor: '#fff3e0', // Naranja claro
+                      border: '1px solid #ff9800', // Borde naranja
+                      borderRadius: '4px',
+                      marginBottom: '5px',
+                      color: '#f57c00', // Texto naranja oscuro
+                      fontWeight: 'bold'
+                    }}>
+                      {(() => {
+                        const hiddenValues = Object.keys(allGroupByValues).filter(key => !visibleGroupByValues[key])
+                        const hiddenCount = hiddenValues.reduce((sum, key) => sum + (allGroupByValues[key] || 0), 0)
+                        return hiddenValues.length > 0 ? 
+                          `Other: ${hiddenValues.length} values (${hiddenCount} items)` : 
+                          'All values visible'
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Dropdown para seleccionar valores adicionales */}
+                  {isGroupByDropdownOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      zIndex: 1000,
+                      backgroundColor: 'white',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      minWidth: '200px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                      <input
+                        type="text"
+                        placeholder="Search values..."
+                        value={groupBySearchTerm}
+                        onChange={(e) => setGroupBySearchTerm(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '5px',
+                          border: 'none',
+                          borderBottom: '1px solid #eee',
+                          fontSize: '11px'
+                        }}
+                      />
+                      {Object.keys(allGroupByValues)
+                        .filter(value => 
+                          value.toLowerCase().includes(groupBySearchTerm.toLowerCase()) &&
+                          !visibleGroupByValues[value]
+                        )
+                        .sort((a, b) => (allGroupByValues[b] || 0) - (allGroupByValues[a] || 0))
+                        .map(value => (
+                          <div
+                            key={value}
+                            onClick={() => handleGroupByValueAdd(value)}
+                            style={{
+                              padding: '5px 8px',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              borderBottom: '1px solid #f0f0f0',
+                              display: 'flex',
+                              justifyContent: 'space-between'
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                          >
+                            <span>{value}</span>
+                            <span style={{ color: '#666' }}>({allGroupByValues[value] || 0})</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {(aggregateState === "PC" || aggregateState === "ACPvsAll") && (
                 <>
@@ -570,6 +866,12 @@ const Sidebar = ({
                       ))}
                       <option value="GC">GC</option>
                       <option value="size">Size</option>
+                      <option value="Coding size">Coding Size</option>
+                      <option value="Non-coding size">Non-coding Size</option>
+                      <option value="coding_percentage">Coding Percentage</option>
+                      <option value="non_coding_percentage">Non-coding Percentage</option>
+                      <option value="overlap">Overlap</option>
+                      <option value="overlap_percentage">Overlap Percentage</option>
                     </select>
                   </label>
                   <label>
@@ -585,6 +887,12 @@ const Sidebar = ({
                       ))}
                       <option value="GC">GC</option>
                       <option value="size">Size</option>
+                      <option value="Coding size">Coding Size</option>
+                      <option value="Non-coding size">Non-coding Size</option>
+                      <option value="coding_percentage">Coding Percentage</option>
+                      <option value="non_coding_percentage">Non-coding Percentage</option>
+                      <option value="overlap">Overlap</option>
+                      <option value="overlap_percentage">Overlap Percentage</option>
                     </select>
                   </label>
                 </>
@@ -725,9 +1033,9 @@ const Sidebar = ({
               <label>
                 Taxon:
                 <select value={taxon} onChange={e => handleTaxonChange(e.target.value)}>
-                  {taxonomyData?.columns.map(column => (
-                    <option key={column} value={column}>
-                      {column.charAt(0).toUpperCase() + column.slice(1)}
+                  {TAXONOMIC_COLUMNS.map(column => (
+                    <option key={column} value={column.toLowerCase()}>
+                      {column}
                     </option>
                   ))}
                 </select>
@@ -747,17 +1055,7 @@ const Sidebar = ({
               <label>
                 Group By:
                 <select value={groupBy} onChange={e => handleGroupByChange(e.target.value)}>
-                  <option value="Superdomain">Superdomain</option>
-                  <option value="Domain">Domain</option>
-                  <option value="Phylum">Phylum</option>
-                  <option value="Class">Class</option>
-                  <option value="Order">Order</option>
-                  <option value="Family">Family</option>
-                  <option value="Genus">Genus</option>
-                  <option value="Species">Species</option>
-                  <option value="Replicons_type">Replicons Type</option>
-                  <option value="GC">GC</option>
-                  <option value="size">Size</option>
+                  {renderGroupByOptions()}
                 </select>
               </label>
 
@@ -784,6 +1082,12 @@ const Sidebar = ({
                       ))}
                       <option value="GC">GC</option>
                       <option value="size">Size</option>
+                      <option value="Coding size">Coding Size</option>
+                      <option value="Non-coding size">Non-coding Size</option>
+                      <option value="coding_percentage">Coding Percentage</option>
+                      <option value="non_coding_percentage">Non-coding Percentage</option>
+                      <option value="overlap">Overlap</option>
+                      <option value="overlap_percentage">Overlap Percentage</option>
                     </select>
                   </label>
                   <label>
@@ -799,6 +1103,12 @@ const Sidebar = ({
                       ))}
                       <option value="GC">GC</option>
                       <option value="size">Size</option>
+                      <option value="Coding size">Coding Size</option>
+                      <option value="Non-coding size">Non-coding Size</option>
+                      <option value="coding_percentage">Coding Percentage</option>
+                      <option value="non_coding_percentage">Non-coding Percentage</option>
+                      <option value="overlap">Overlap</option>
+                      <option value="overlap_percentage">Overlap Percentage</option>
                     </select>
                   </label>
                 </>
@@ -850,9 +1160,9 @@ const Sidebar = ({
               <label>
                 Taxon:
                 <select value={taxon} onChange={e => handleTaxonChange(e.target.value)}>
-                  {taxonomyData?.columns.map(column => (
-                    <option key={column} value={column}>
-                      {column.charAt(0).toUpperCase() + column.slice(1)}
+                  {TAXONOMIC_COLUMNS.map(column => (
+                    <option key={column} value={column.toLowerCase()}>
+                      {column}
                     </option>
                   ))}
                 </select>

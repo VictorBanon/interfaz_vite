@@ -33,6 +33,10 @@ const Structural = () => {
   // Estados para filtro
   const [selectedFilters, setSelectedFilters] = useState({})
   const [availableFilterOptions, setAvailableFilterOptions] = useState({})
+  const [availableFilterCounts, setAvailableFilterCounts] = useState({}) // Nuevo estado para conteos
+
+  // Estado para control de visibilidad de valores de GroupBy
+  const [visibleGroupByValues, setVisibleGroupByValues] = useState({})
 
   const handleACPClick = (point) => {
     console.log('ACP click:', point);
@@ -61,9 +65,12 @@ const Structural = () => {
 
   const handlePCChange = (x, y) => {
     console.log('PC values updated:', { x, y })
-    // Convertir strings a números si es necesario, o mantener strings para GC/size
-    const processedX = (x === "GC" || x === "size") ? x : (typeof x === 'string' ? parseInt(x) : x)
-    const processedY = (y === "GC" || y === "size") ? y : (typeof y === 'string' ? parseInt(y) : y)
+    // Define string columns that should not be converted to numbers
+    const stringColumns = ["GC", "size", "Coding size", "Non-coding size", "coding_percentage", "non_coding_percentage", "overlap", "overlap_percentage"]
+    
+    // Convertir strings a números solo si no están en la lista de columnas string
+    const processedX = stringColumns.includes(x) ? x : (typeof x === 'string' ? parseInt(x) : x)
+    const processedY = stringColumns.includes(y) ? y : (typeof y === 'string' ? parseInt(y) : y)
     setPcConfig({ x: processedX, y: processedY })
   }
 
@@ -117,9 +124,17 @@ const Structural = () => {
     setSelectedFilters(newFilters)
   }
 
-  const handleFilterOptionsChange = (allFilterOptions) => {
+  const handleFilterOptionsChange = (allFilterOptions, allFilterCounts = {}) => {
     console.log('Available filter options:', allFilterOptions)
+    console.log('Available filter counts:', allFilterCounts)
     setAvailableFilterOptions(allFilterOptions)
+    setAvailableFilterCounts(allFilterCounts)
+  }
+
+  // Handler para cambios en visibilidad de valores de GroupBy
+  const handleGroupByVisibilityChange = (newVisibleValues) => {
+    console.log('GroupBy visibility changed to:', newVisibleValues)
+    setVisibleGroupByValues(newVisibleValues)
   }
 
   return (
@@ -142,6 +157,9 @@ const Structural = () => {
         groupBy={groupBy}
         selectedFilters={selectedFilters}
         availableFilterOptions={availableFilterOptions}
+        availableFilterCounts={availableFilterCounts}
+        onGroupByVisibilityChange={handleGroupByVisibilityChange}
+        visibleGroupByValues={visibleGroupByValues}
       />
       <main className="main-content">
         {isCard2Expanded ? (
@@ -186,6 +204,7 @@ const Structural = () => {
                 groupBy={groupBy}
                 selectedFilters={selectedFilters}
                 onFilterOptionsChange={handleFilterOptionsChange}
+                visibleGroupByValues={visibleGroupByValues}
               />
             </div> 
             <div className="card">

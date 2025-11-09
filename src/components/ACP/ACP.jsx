@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react"
 import Plot from "react-plotly.js"
 import Papa from "papaparse"
 import { buildACPFilePath } from '../../utils/taxonomyUtils'
+import { TAXONOMIC_COLUMNS, CONTINUOUS_COLUMNS } from '../../utils/constants'
 
-const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "Superdomain", analysisType = "hc", selectedFilters = [], onFilterOptionsChange }) => {
-  console.log('ACP: Component mounted/rendered with props:', { csvPath, pcX, pcY, taxon, taxonValue, part, groupBy })
+const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy = "Superdomain", analysisType = "hc", selectedFilters = [], onFilterOptionsChange, visibleGroupByValues = {} }) => {
+  console.log('ACP: Component mounted/rendered with props:', { csvPath, pcX, pcY, taxon, taxonValue, part, groupBy, visibleGroupByValues })
   
   const [data, setData] = useState([])
   const [currentCsvPath, setCurrentCsvPath] = useState(csvPath)
@@ -74,22 +75,33 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
             // Extract all categorical columns and their unique values for filtering
             if (onFilterOptionsChange && filtered.length > 0) {
               const allFilterOptions = {}
+              const allFilterCounts = {}
               
               // Get all column names from the first row
               const columns = Object.keys(filtered[0])
               
-              // For each column, extract unique values (exclude numerical analysis columns like PC1, PC2, etc.)
+              // For each column, extract unique values (only for taxonomic columns)
               columns.forEach(column => {
-                // Skip PC columns, GC, and size as they are handled separately
-                if (!column.startsWith('PC') && column !== 'GC' && column !== 'size') {
+                // Only include taxonomic columns defined in constants.ts
+                if (TAXONOMIC_COLUMNS.includes(column)) {
                   const uniqueValues = [...new Set(filtered.map(row => row[column]).filter(val => val && val !== '' && val !== null && val !== undefined))]
                   if (uniqueValues.length > 0 && uniqueValues.length < filtered.length * 0.8) { // Only include if it's truly categorical (not mostly unique)
                     allFilterOptions[column] = uniqueValues
+                    
+                    // Calcular conteos reales para cada valor
+                    const valueCounts = {}
+                    filtered.forEach(row => {
+                      const value = row[column]
+                      if (value && value !== '' && value !== null && value !== undefined) {
+                        valueCounts[value] = (valueCounts[value] || 0) + 1
+                      }
+                    })
+                    allFilterCounts[column] = valueCounts
                   }
                 }
               })
               
-              onFilterOptionsChange(allFilterOptions)
+              onFilterOptionsChange(allFilterOptions, allFilterCounts)
             }
           },
           error: (err) => {
@@ -177,6 +189,12 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   const getAxisLabel = (pcNumber) => {
     if (pcNumber === "GC") return "GC Content"
     if (pcNumber === "size") return "Size (bp)"
+    if (pcNumber === "Coding size") return "Coding Size (bp)"
+    if (pcNumber === "Non-coding size") return "Non-coding Size (bp)"
+    if (pcNumber === "coding_percentage") return "Coding Percentage (%)"
+    if (pcNumber === "non_coding_percentage") return "Non-coding Percentage (%)"
+    if (pcNumber === "overlap") return "Overlap (bp)"
+    if (pcNumber === "overlap_percentage") return "Overlap Percentage (%)"
     return `PC${pcNumber} (Principal Component ${pcNumber})`
   }
 
@@ -187,16 +205,22 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     // Filtrar datos válidos
     const validData = data.filter(row => {
       const xValue = pcX === "GC" ? parseFloat(row.GC) : 
-                   pcX === "size" ? parseFloat(row.size) : 
+                   pcX === "size" ? parseFloat(row.size) :
+                   pcX === "Coding size" ? parseFloat(row["Coding size"]) :
+                   pcX === "Non-coding size" ? parseFloat(row["Non-coding size"]) :
+                   pcX === "coding_percentage" ? parseFloat(row.coding_percentage) :
+                   pcX === "non_coding_percentage" ? parseFloat(row.non_coding_percentage) :
+                   pcX === "overlap" ? parseFloat(row.overlap) :
+                   pcX === "overlap_percentage" ? parseFloat(row.overlap_percentage) :
                    row[`PC${pcX}`]
       return !isNaN(xValue) && xValue !== null && xValue !== undefined
     })
     
     if (validData.length === 0) return { extremeX: [] }
     
-    // Calcular cuántos puntos extremos tomar
+    // Calcular cuántos puntos extremos tomar - Solo Top 1 y Bottom 1
     const totalPoints = validData.length
-    const numExtremePoints = totalPoints < 20 ? Math.floor(totalPoints / 2) : 10
+    const numExtremePoints = totalPoints >= 2 ? 1 : 0 // Solo 1 punto para cada extremo
     
     if (numExtremePoints === 0) return { extremeX: [] }
     
@@ -204,7 +228,13 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     const xValues = validData.map(row => ({
       data: row,
       value: pcX === "GC" ? parseFloat(row.GC) : 
-             pcX === "size" ? parseFloat(row.size) : 
+             pcX === "size" ? parseFloat(row.size) :
+             pcX === "Coding size" ? parseFloat(row["Coding size"]) :
+             pcX === "Non-coding size" ? parseFloat(row["Non-coding size"]) :
+             pcX === "coding_percentage" ? parseFloat(row.coding_percentage) :
+             pcX === "non_coding_percentage" ? parseFloat(row.non_coding_percentage) :
+             pcX === "overlap" ? parseFloat(row.overlap) :
+             pcX === "overlap_percentage" ? parseFloat(row.overlap_percentage) :
              row[`PC${pcX}`]
     }))
     
@@ -230,7 +260,7 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
   // Crear conjunto de IDs para identificar puntos extremos del eje X
   const extremeXIds = new Set(extremeX.map(point => point.data.ID || point.data['ID-replicon']))
   
-  if (groupBy === 'size' || groupBy === 'GC') {
+  if (CONTINUOUS_COLUMNS.includes(groupBy)) {
     // For continuous variables, use numeric color scale with colorbar
     // Filter out rows with non-numeric values
     const validData = filteredData.filter(row => {
@@ -244,11 +274,23 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
       x: validData.map(row => {
         if (pcX === "GC") return parseFloat(row.GC) || 0;
         if (pcX === "size") return parseFloat(row.size) || 0;
+        if (pcX === "Coding size") return parseFloat(row["Coding size"]) || 0;
+        if (pcX === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+        if (pcX === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+        if (pcX === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+        if (pcX === "overlap") return parseFloat(row.overlap) || 0;
+        if (pcX === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
         return row[`PC${pcX}`] || 0;
       }),
       y: validData.map(row => {
         if (pcY === "GC") return parseFloat(row.GC) || 0;
         if (pcY === "size") return parseFloat(row.size) || 0;
+        if (pcY === "Coding size") return parseFloat(row["Coding size"]) || 0;
+        if (pcY === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+        if (pcY === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+        if (pcY === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+        if (pcY === "overlap") return parseFloat(row.overlap) || 0;
+        if (pcY === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
         return row[`PC${pcY}`] || 0;
       }),
       text: validData.map(row => row.id || ""),
@@ -267,23 +309,37 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
         size: 6,
         color: numericValues,
         colorscale: groupBy === 'GC' ? 'RdYlBu_r' : (
-          groupBy === 'size' ? [
+          groupBy === 'size' || groupBy === 'Coding size' || groupBy === 'Non-coding size' ? [
             [0, 'lightblue'],      // Azul claro
             [0.2, 'skyblue'],      // Azul cielo
             [0.4, 'steelblue'],    // Azul acero
             [0.6, 'brown'],        // Marrón
             [0.8, 'saddlebrown'],  // Marrón silla
             [1, 'darkbrown']       // Marrón oscuro
-          ] : 'Plasma'
+          ] : (
+            groupBy === 'coding_percentage' || groupBy === 'non_coding_percentage' || groupBy === 'overlap_percentage' ? 'Viridis' : 'Plasma'
+          )
         ),
-        // Set fixed color range for GC (0-1) for better visualization
+        // Set fixed color range for GC (0-1) and percentages (0-100) for better visualization
         ...(groupBy === 'GC' && {
           cmin: 0,
           cmax: 1
         }),
+        ...((groupBy === 'coding_percentage' || groupBy === 'non_coding_percentage' || groupBy === 'overlap_percentage') && {
+          cmin: 0,
+          cmax: 100
+        }),
         colorbar: {
           title: {
-            text: groupBy === 'GC' ? 'GC Content' : (groupBy === 'size' ? 'Size (bp)' : groupBy),
+            text: groupBy === 'GC' ? 'GC Content' : 
+                  groupBy === 'size' ? 'Size (bp)' : 
+                  groupBy === 'Coding size' ? 'Coding Size (bp)' :
+                  groupBy === 'Non-coding size' ? 'Non-coding Size (bp)' :
+                  groupBy === 'coding_percentage' ? 'Coding %' :
+                  groupBy === 'non_coding_percentage' ? 'Non-coding %' :
+                  groupBy === 'overlap' ? 'Overlap (bp)' :
+                  groupBy === 'overlap_percentage' ? 'Overlap %' :
+                  groupBy,
             side: 'right'
           },
           thickness: 15,
@@ -295,6 +351,13 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
             tick0: 0,
             dtick: 0.1,
             tickmode: 'linear'
+          }),
+          // Set appropriate ticks for percentages
+          ...((groupBy === 'coding_percentage' || groupBy === 'non_coding_percentage' || groupBy === 'overlap_percentage') && {
+            tick0: 0,
+            dtick: 10,
+            tickmode: 'linear',
+            ticksuffix: '%'
           })
         },
         showscale: true
@@ -307,9 +370,21 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     // For categorical variables, group by the selected field
     const groups = {}
     filteredData.forEach((row) => {
-      const groupValue = row[groupBy] || "Unknown"
-      if (!groups[groupValue]) groups[groupValue] = []
-      groups[groupValue].push(row)
+      const originalGroupValue = row[groupBy] || "Unknown"
+      
+      // Solo aplicar controles de visibilidad para columnas taxonómicas
+      const isTaxonomicColumn = TAXONOMIC_COLUMNS.includes(groupBy)
+      
+      // Si no hay filtro aplicado o no es columna taxonómica, mostrar todos los grupos normalmente
+      if (Object.keys(visibleGroupByValues).length === 0 || !isTaxonomicColumn) {
+        if (!groups[originalGroupValue]) groups[originalGroupValue] = []
+        groups[originalGroupValue].push({...row, originalGroup: originalGroupValue})
+      } else {
+        // Si hay filtro aplicado y es columna taxonómica, agrupar valores no visibles como "Other"
+        const finalGroupValue = visibleGroupByValues[originalGroupValue] ? originalGroupValue : "Other"
+        if (!groups[finalGroupValue]) groups[finalGroupValue] = []
+        groups[finalGroupValue].push({...row, originalGroup: originalGroupValue})
+      }
     })
 
     // Create one trace per group
@@ -317,11 +392,23 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
       x: points.map(row => {
         if (pcX === "GC") return parseFloat(row.GC) || 0;
         if (pcX === "size") return parseFloat(row.size) || 0;
+        if (pcX === "Coding size") return parseFloat(row["Coding size"]) || 0;
+        if (pcX === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+        if (pcX === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+        if (pcX === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+        if (pcX === "overlap") return parseFloat(row.overlap) || 0;
+        if (pcX === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
         return row[`PC${pcX}`] || 0;
       }),
       y: points.map(row => {
         if (pcY === "GC") return parseFloat(row.GC) || 0;
         if (pcY === "size") return parseFloat(row.size) || 0;
+        if (pcY === "Coding size") return parseFloat(row["Coding size"]) || 0;
+        if (pcY === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+        if (pcY === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+        if (pcY === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+        if (pcY === "overlap") return parseFloat(row.overlap) || 0;
+        if (pcY === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
         return row[`PC${pcY}`] || 0;
       }),
       text: points.map(row => row.id || ""),
@@ -331,13 +418,16 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
         '<b>ID:</b> %{customdata.ID}<br>' +
         '<b>' + getAxisLabel(pcX) + ':</b> %{x:.3f}<br>' +
         '<b>' + getAxisLabel(pcY) + ':</b> %{y:.3f}<br>' +
-        '<b>name:</b> %{customdata.fullname} <br>' +
+        '<b>name:</b> %{customdata.fullname}<br>' +
+        (groupValue === "Other" ? '<b>Original ' + groupBy + ':</b> %{customdata.originalGroup}<br>' : '') +
         '<extra></extra>',
       mode: 'markers',
       type: 'scatter',
       marker: {
         size: 6,
-        color: groupValue,
+        color: groupValue === "Other" ? "#bdbdbd" : groupValue, // Gris más claro para "Other"
+        opacity: groupValue === "Other" ? 0.5 : 1.0, // Más transparente para "Other"
+        line: groupValue === "Other" ? { color: "#757575", width: 1 } : undefined, // Borde gris para "Other"
       },
       name: groupValue,
       visible: legendState[groupValue] !== 'legendonly' ? true : 'legendonly'
@@ -355,16 +445,28 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     
     // Traza para puntos X bajos (usando colores que no interfieran con groupBy)
     if (xLowPoints.length > 0) {
-      const traceName = `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} BOTTOM ${numExtremePoints}`;
+      const traceName = `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : pcX === "Coding size" ? "Coding Size" : pcX === "Non-coding size" ? "Non-coding Size" : pcX === "coding_percentage" ? "Coding %" : pcX === "non_coding_percentage" ? "Non-coding %" : pcX === "overlap" ? "Overlap" : pcX === "overlap_percentage" ? "Overlap %" : `PC${pcX}`)} BOTTOM`;
       traces.push({
         x: xLowPoints.map(row => {
           if (pcX === "GC") return parseFloat(row.GC) || 0;
           if (pcX === "size") return parseFloat(row.size) || 0;
+          if (pcX === "Coding size") return parseFloat(row["Coding size"]) || 0;
+          if (pcX === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+          if (pcX === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+          if (pcX === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+          if (pcX === "overlap") return parseFloat(row.overlap) || 0;
+          if (pcX === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
           return row[`PC${pcX}`] || 0;
         }),
         y: xLowPoints.map(row => {
           if (pcY === "GC") return parseFloat(row.GC) || 0;
           if (pcY === "size") return parseFloat(row.size) || 0;
+          if (pcY === "Coding size") return parseFloat(row["Coding size"]) || 0;
+          if (pcY === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+          if (pcY === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+          if (pcY === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+          if (pcY === "overlap") return parseFloat(row.overlap) || 0;
+          if (pcY === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
           return row[`PC${pcY}`] || 0;
         }),
         customdata: xLowPoints,
@@ -391,16 +493,28 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
     
     // Traza para puntos X altos (usando colores que no interfieran con groupBy)
     if (xHighPoints.length > 0) {
-      const traceName = `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)} TOP ${numExtremePoints}`;
+      const traceName = `${pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : pcX === "Coding size" ? "Coding Size" : pcX === "Non-coding size" ? "Non-coding Size" : pcX === "coding_percentage" ? "Coding %" : pcX === "non_coding_percentage" ? "Non-coding %" : pcX === "overlap" ? "Overlap" : pcX === "overlap_percentage" ? "Overlap %" : `PC${pcX}`)} TOP`;
       traces.push({
         x: xHighPoints.map(row => {
           if (pcX === "GC") return parseFloat(row.GC) || 0;
           if (pcX === "size") return parseFloat(row.size) || 0;
+          if (pcX === "Coding size") return parseFloat(row["Coding size"]) || 0;
+          if (pcX === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+          if (pcX === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+          if (pcX === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+          if (pcX === "overlap") return parseFloat(row.overlap) || 0;
+          if (pcX === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
           return row[`PC${pcX}`] || 0;
         }),
         y: xHighPoints.map(row => {
           if (pcY === "GC") return parseFloat(row.GC) || 0;
           if (pcY === "size") return parseFloat(row.size) || 0;
+          if (pcY === "Coding size") return parseFloat(row["Coding size"]) || 0;
+          if (pcY === "Non-coding size") return parseFloat(row["Non-coding size"]) || 0;
+          if (pcY === "coding_percentage") return parseFloat(row.coding_percentage) || 0;
+          if (pcY === "non_coding_percentage") return parseFloat(row.non_coding_percentage) || 0;
+          if (pcY === "overlap") return parseFloat(row.overlap) || 0;
+          if (pcY === "overlap_percentage") return parseFloat(row.overlap_percentage) || 0;
           return row[`PC${pcY}`] || 0;
         }),
         customdata: xHighPoints,
@@ -431,8 +545,8 @@ const ACP = ({ csvPath, pcX, pcY, onPointClick, taxon, taxonValue, part, groupBy
 
   // Crear título dinámico con taxón y número de puntos
   const getTitle = () => {
-    const yLabel = pcY === "GC" ? "GC" : (pcY === "size" ? "Size" : `PC${pcY}`)
-    const xLabel = pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : `PC${pcX}`)
+    const yLabel = pcY === "GC" ? "GC" : (pcY === "size" ? "Size" : pcY === "Coding size" ? "Coding Size" : pcY === "Non-coding size" ? "Non-coding Size" : pcY === "coding_percentage" ? "Coding %" : pcY === "non_coding_percentage" ? "Non-coding %" : pcY === "overlap" ? "Overlap" : pcY === "overlap_percentage" ? "Overlap %" : `PC${pcY}`)
+    const xLabel = pcX === "GC" ? "GC" : (pcX === "size" ? "Size" : pcX === "Coding size" ? "Coding Size" : pcX === "Non-coding size" ? "Non-coding Size" : pcX === "coding_percentage" ? "Coding %" : pcX === "non_coding_percentage" ? "Non-coding %" : pcX === "overlap" ? "Overlap" : pcX === "overlap_percentage" ? "Overlap %" : `PC${pcX}`)
     const baseTitle = `${xLabel} vs ${yLabel}`
     let title = baseTitle
     

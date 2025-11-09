@@ -167,10 +167,14 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             
             // Si no hay columna frequency, calcular el total para calcular frecuencias
             let totalCount = 0
-            if (!hasFrequencyColumn) {
-              totalCount = data.reduce((sum, row) => sum + (parseInt(row.count) || 0), 0)
-              console.log('Total count for frequency calculation:', totalCount)
-            }
+            let minTotalCount = 0
+            let maxTotalCount = 0
+            
+            // Siempre calcular los totales para determinar zmax apropiado
+            totalCount = data.reduce((sum, row) => sum + (parseInt(row.count) || 0), 0)
+            minTotalCount = data.filter(row => row.min_max === 'min').reduce((sum, row) => sum + (parseInt(row.count) || 0), 0)
+            maxTotalCount = data.filter(row => row.min_max === 'max').reduce((sum, row) => sum + (parseInt(row.count) || 0), 0)
+            console.log('Total counts - Min:', minTotalCount, 'Max:', maxTotalCount, 'Overall:', totalCount)
             
             // Procesar cada fila del CSV
             data.forEach((row: any, index: number) => {
@@ -190,10 +194,12 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               // Calcular frequency basada en si la columna existe o no
               let frequency: number
               if (hasFrequencyColumn && row.frequency !== undefined) {
+                // Usar la frequency existente del CSV
                 frequency = parseFloat(row.frequency) || 0
               } else {
-                // Calcular frequency como count/total si no existe la columna
-                frequency = totalCount > 0 ? count / totalCount : 0
+                // Calcular frequency como count/total específico para min/max
+                const relevantTotal = minMax === 'min' ? minTotalCount : maxTotalCount
+                frequency = relevantTotal > 0 ? count / relevantTotal : 0
               }
               
               const key = `${arm},${gap}`
@@ -290,22 +296,30 @@ const AggregateStructural: React.FC<AggregateProps> = ({
             const minResult = createMatrix(minData)
             const maxResult = createMatrix(maxData)
             
+            // Calculate zmax values based on 1/total_count for each type
+            const minZmax = minTotalCount > 0 ? 1 / minTotalCount : 1
+            const maxZmax = maxTotalCount > 0 ? 1 / maxTotalCount : 1
+            
+            console.log('Calculated zmax values:', { minZmax, maxZmax, minTotalCount, maxTotalCount })
+            
             console.log('Final Min-Max result:', {
               min: {
                 hasData: !!minResult.z,
                 dimensions: minResult.z ? `${minResult.z.length}x${minResult.z[0]?.length}` : 'none',
-                nonZeroValues: minResult.z ? minResult.z.flat().filter(v => v > 0).length : 0
+                nonZeroValues: minResult.z ? minResult.z.flat().filter(v => v > 0).length : 0,
+                zmax: minZmax
               },
               max: {
                 hasData: !!maxResult.z,
                 dimensions: maxResult.z ? `${maxResult.z.length}x${maxResult.z[0]?.length}` : 'none',
-                nonZeroValues: maxResult.z ? maxResult.z.flat().filter(v => v > 0).length : 0
+                nonZeroValues: maxResult.z ? maxResult.z.flat().filter(v => v > 0).length : 0,
+                zmax: maxZmax
               }
             })
             
             resolve({
-              min: minResult,
-              max: maxResult
+              min: { ...minResult, zmax: minZmax },
+              max: { ...maxResult, zmax: maxZmax }
             })
           },
           error: (error: any) => {
@@ -1067,7 +1081,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               text: minMaxData.min.text,
               hoverinfo: 'text',
               zmin: 0,
-              zmax: 1,
+              zmax: minMaxData.min.zmax || 1,
             }]}
             layout={{
               title: { text: 'Minimum Distribution' },
@@ -1112,7 +1126,7 @@ const AggregateStructural: React.FC<AggregateProps> = ({
               text: minMaxData.max.text,
               hoverinfo: 'text',
               zmin: 0,
-              zmax: 1,
+              zmax: minMaxData.max.zmax || 1,
             }]}
             layout={{
               title: { text: 'Maximum Distribution' },
